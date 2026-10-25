@@ -1,0 +1,27 @@
+name: Deploy to production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to server 1
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            set -e
+            cd /home/heirloom
+            git fetch origin main
+            git reset --hard origin/main
+            npm ci
+            npm run build
+            pm2 startOrRestart ecosystem.config.cjs
+            pm2 save
+            sleep 3
+            curl -fsS -o /dev/null http://localhost:3005/ && echo "Heirloom Hollow is up on 3005"
