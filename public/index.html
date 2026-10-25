@@ -25,11 +25,23 @@
       background: var(--paper); border: 4px solid var(--ink); border-radius: 14px; padding: 10px;
       box-shadow: 0 5px 0 var(--edge); }
     #talk.open { display: flex; }
+    #talk { position: fixed; }
     #talk img { width: 96px; height: 96px; image-rendering: pixelated; flex: none;
       background: #f7dcc0; border: 3px solid var(--ink); border-radius: 10px; }
     #talk .who { font-weight: 600; font-size: 19px; margin-bottom: 4px; }
     #talk .line { font-size: 18px; line-height: 1.3; }
-    #talk .tap { font-size: 13px; opacity: .6; margin-top: 6px; }
+    #talk .text { flex: 1; min-width: 0; }
+    #talk .line { min-height: 46px; }
+    #talk .line.waiting { opacity: .55; }
+    #bye { position: absolute; top: -14px; right: -10px; width: 34px; height: 34px; border-radius: 50%;
+      border: 3px solid var(--ink); background: var(--paper); color: var(--ink); font: 600 20px/1 'Pixelify Sans', monospace;
+      box-shadow: 0 3px 0 var(--edge); }
+    #say { display: flex; gap: 6px; margin-top: 8px; }
+    #say input { flex: 1; min-width: 0; font: 17px 'Pixelify Sans', monospace; color: var(--ink); background: #fff;
+      border: 3px solid var(--ink); border-radius: 8px; padding: 6px 8px; }
+    #say button { font: 600 17px 'Pixelify Sans', monospace; color: var(--paper); background: #c9705a;
+      border: 3px solid var(--ink); border-radius: 8px; padding: 0 12px; }
+    #say.hidden { display: none; }
     #hint { position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); width: 100%; text-align: center;
       font-size: 16px; color: #fff6e6; text-shadow: 0 2px 0 #4a2826; pointer-events: none; z-index: 4;
       transition: opacity 1s; }
@@ -38,7 +50,18 @@
 <body>
   <div id="game"></div>
   <div id="hud"><div class="chip" id="clock">Spring 1</div><div class="chip" id="where">Hazel's Farm</div></div>
-  <div id="talk"><img alt=""><div><div class="who"></div><div class="line"></div><div class="tap">tap to close</div></div></div>
+  <div id="talk">
+    <button id="bye" aria-label="Close">×</button>
+    <img alt="">
+    <div class="text">
+      <div class="who"></div>
+      <div class="line"></div>
+      <form id="say" autocomplete="off">
+        <input id="said" maxlength="200" placeholder="Say something..." enterkeyhint="send">
+        <button type="submit">Say</button>
+      </form>
+    </div>
+  </div>
   <div id="hint">Tap anywhere to walk. Tap someone to talk.</div>
   <script src="build/app.js"></script>
 </body>

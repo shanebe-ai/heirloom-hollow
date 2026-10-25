@@ -69,6 +69,10 @@ class Farmyard extends Phaser.Scene {
   keys!: Record<string, Phaser.Input.Keyboard.Key>;
   talking = false;
   talkTarget: Person | 'bramble' | null = null;
+  chatWith: Person | null = null;
+  waiting = false;
+  /** What each person and the farmer have said lately, so they remember the conversation. */
+  memory = loadMemory();
   minutes = 6 * 60;
   night!: Phaser.GameObjects.Rectangle;
   marker!: Phaser.GameObjects.Graphics;
@@ -130,7 +134,7 @@ class Farmyard extends Phaser.Scene {
     this.fitZoom();
     this.scale.on('resize', () => this.fitZoom());
 
-    this.keys = this.input.keyboard!.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT') as Record<string, Phaser.Input.Keyboard.Key>;
+    this.keys = this.input.keyboard!.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT', false) as Record<string, Phaser.Input.Keyboard.Key>;
 
     this.input.on('gameobjectdown', (_p: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
       if (this.talking) return;
@@ -147,7 +151,15 @@ class Farmyard extends Phaser.Scene {
       this.talkTarget = null;
       this.walkTo(Math.floor(p.worldX / T), Math.floor(p.worldY / T), false);
     });
-    document.getElementById('talk')!.addEventListener('pointerdown', e => { e.stopPropagation(); this.closeTalk(); });
+    // Taps inside the chat box stay there; the cross or a tap on the farm closes it.
+    document.getElementById('talk')!.addEventListener('pointerdown', e => e.stopPropagation());
+    document.getElementById('bye')!.addEventListener('click', () => this.closeTalk());
+    document.getElementById('say')!.addEventListener('submit', e => {
+      e.preventDefault();
+      const input = document.getElementById('said') as HTMLInputElement;
+      const text = input.value.trim();
+      if (text && this.chatWith && !this.waiting) { input.value = ''; this.ask(this.chatWith, text); }
+    });
     setTimeout(() => { document.getElementById('hint')!.style.opacity = '0'; }, 6000);
   }
 
@@ -232,7 +244,7 @@ class Farmyard extends Phaser.Scene {
   update(time: number, delta: number) {
     const dt = delta / 1000;
     this.tickClock(delta);
-    if (this.talking) { this.depthSort(); return; }
+    if (this.talking || document.activeElement?.id === 'said') { this.depthSort(); return; }
 
     // Keyboard on a computer: walk one tile at a time in the pressed direction.
     const k = this.keys;
@@ -297,7 +309,10 @@ class Farmyard extends Phaser.Scene {
     this.talking = true;
     const box = document.getElementById('talk')!;
     const img = box.querySelector('img')!;
+    const form = document.getElementById('say')!;
+    const line = box.querySelector('.line')!;
     if (who === 'bramble') {
+      this.chatWith = null;
       img.src = 'assets/sprites/bramble.png';
       img.style.objectFit = 'none';
       img.style.objectPosition = '-64px -64px';
@@ -305,30 +320,78 @@ class Farmyard extends Phaser.Scene {
       img.style.transform = 'scale(3)';
       img.style.margin = '32px';
       box.querySelector('.who')!.textContent = 'Bramble';
-      box.querySelector('.line')!.textContent = Phaser.Utils.Array.GetRandom(BRAMBLE_LINES);
+      line.textContent = Phaser.Utils.Array.GetRandom(BRAMBLE_LINES);
+      line.classList.remove('waiting');
+      form.classList.add('hidden'); // foxes don't chat
     } else {
+      this.chatWith = who;
       img.removeAttribute('style');
-      const mood = Math.random() < 0.6 ? 'happy' : 'neutral';
-      img.src = `assets/portraits/${who.key}_${mood}.png`;
+      img.src = `assets/portraits/${who.key}_neutral.png`;
       box.querySelector('.who')!.textContent = who.name;
-      box.querySelector('.line')!.textContent = Phaser.Utils.Array.GetRandom(who.lines);
-      // They stop and turn to face you.
+      form.classList.remove('hidden');
+      // They stop, turn to face you, and wait while you talk.
       who.path = [];
       const dx = this.player.x - who.sprite.x, dy = this.player.y - who.sprite.y;
       who.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
       this.stand(who.sprite, who.dir);
-      who.idleUntil = this.time.now + 4000;
+      who.idleUntil = Number.MAX_SAFE_INTEGER;
       const back: Dir = who.dir === 'left' ? 'right' : who.dir === 'right' ? 'left' : who.dir === 'up' ? 'down' : 'up';
       this.playerDir = back;
       this.stand(this.player, back);
+      this.ask(who, '');
     }
     box.classList.add('open');
   }
 
+  /** One exchange with the server: greet them when `said` is empty, otherwise say it. */
+  async ask(who: Person, said: string) {
+    const box = document.getElementById('talk')!;
+    const line = box.querySelector('.line')!;
+    const img = box.querySelector('img')!;
+    this.waiting = true;
+    line.textContent = said ? `You: ${said}` : '...';
+    line.classList.add('waiting');
+    const history = this.memory[who.key] ?? [];
+    let reply = { line: Phaser.Utils.Array.GetRandom(who.lines) as string, mood: 'neutral' };
+    try {
+      const res = await fetch('api/talk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ who: who.key, said, history, context: { time: this.clockText(), season: 'Spring', day: 1 } }),
+      });
+      if (res.ok) reply = await res.json();
+    } catch { /* offline: their written line it is */ }
+    this.waiting = false;
+    if (this.chatWith !== who) return; // they closed the chat while we waited
+    line.classList.remove('waiting');
+    line.textContent = reply.line;
+    img.src = `assets/portraits/${who.key}_${reply.mood || 'neutral'}.png`;
+    const mem = [...history];
+    if (said) mem.push({ from: 'player', text: said });
+    mem.push({ from: who.key, text: reply.line });
+    this.memory[who.key] = mem.slice(-8);
+    saveMemory(this.memory);
+  }
+
+  clockText() {
+    return document.getElementById('clock')!.textContent!.replace(/^Spring 1\s+/, '');
+  }
+
   closeTalk() {
     this.talking = false;
+    if (this.chatWith) this.chatWith.idleUntil = this.time.now + 2000;
+    this.chatWith = null;
+    (document.getElementById('said') as HTMLInputElement).blur();
     document.getElementById('talk')!.classList.remove('open');
   }
+}
+
+type Memory = Record<string, { from: string; text: string }[]>;
+function loadMemory(): Memory {
+  try { return JSON.parse(localStorage.getItem('hh-memory') || '{}'); } catch { return {}; }
+}
+function saveMemory(m: Memory) {
+  try { localStorage.setItem('hh-memory', JSON.stringify(m)); } catch { /* private mode: they forget, that's fine */ }
 }
 
 new Phaser.Game({

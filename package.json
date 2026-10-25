@@ -9,7 +9,8 @@
     "assets": "mkdir -p public/assets/sprites public/assets/portraits && cp art/sprites/*.png public/assets/sprites/ && cp art/portraits/*.png public/assets/portraits/",
     "build:client": "esbuild client/main.ts --bundle --minify --sourcemap --target=es2020 --outfile=public/build/app.js",
     "typecheck": "tsc --noEmit -p client/tsconfig.json",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
   },
   "author": "shanebe-ai",
   "license": "MIT",
