@@ -27,4 +27,4 @@ Every character is drawn on a magenta background, then cleaned into true pixel a
 
 ## Deploying
 
-Every push to main deploys to server 1 through GitHub Actions (`.github/workflows/deploy.yml`), using the DEPLOY_HOST, DEPLOY_USER and DEPLOY_KEY repo secrets.
+Server 1 checks GitHub every minute (`scripts/autodeploy.sh`, run from root's crontab). When main has new commits it pulls them, rebuilds and restarts the game with pm2. Its log is in /var/log/heirloom-deploy.log.
