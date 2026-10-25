@@ -33,6 +33,21 @@ const VISITORS = [
     'The Flower Festival is in spring. You will come, won\'t you?',
     'Hazel would be proud to see the old place breathing again.',
   ] },
+  { key: 'amara', name: 'Amara', at: { x: 24, y: 18 }, lines: [
+    'Mind the clay, it gets everywhere. Ask my cheeks.',
+    'Bring me river mud some day and I will make you a bowl from your own farm.',
+    'Hazel bought a jug from me every spring. I kept her favourite glaze.',
+  ] },
+  { key: 'priya', name: 'Priya', at: { x: 16, y: 16 }, lines: [
+    'That shirt has seen some summers! Come by the shop, I will find you a colour.',
+    'Every thread in my window was spun by someone in this valley.',
+    'Hold still... yes, I was measuring you for a scarf. Sorry!',
+  ] },
+  { key: 'hana', name: 'Hana', at: { x: 26, y: 8 }, lines: [
+    'Your tomatoes are leaning east. So is your fence. Interesting.',
+    'Tea is better shared. The pot is always warm at mine.',
+    'A bonsai teaches patience. So, it seems, does farming.',
+  ] },
 ];
 const BRAMBLE_LINES = [
   'Bramble flicks an ear at you, then yawns.',
@@ -125,8 +140,10 @@ class Farmyard extends Phaser.Scene {
       this.walkTo(Math.floor(target.x / T), Math.floor((target.y - 4) / T), true);
     });
     this.input.on('pointerdown', (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-      if (this.talking) { this.closeTalk(); return; }
+      // Tapping a person is handled above; checking that first stops a tap on someone
+      // standing right beside you from opening the chat and closing it again at once.
       if (over.length) return;
+      if (this.talking) { this.closeTalk(); return; }
       this.talkTarget = null;
       this.walkTo(Math.floor(p.worldX / T), Math.floor(p.worldY / T), false);
     });

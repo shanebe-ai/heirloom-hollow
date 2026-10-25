@@ -5,7 +5,11 @@ set -e
 T=tools
 F5="neutral happy shy sad surprised"
 for c in rosie; do for e in neutral happy shy sad surprised; do python3 $T/pixelize.py source/${c}_$e.jpg 96 40 portraits/${c}_$e.png; done; done
-for c in kai mira theo silas; do python3 $T/sheet.py source/${c}_sheet.jpg portraits $c 3,2 $F5; done
+for c in kai mira theo silas amara priya; do python3 $T/sheet.py source/${c}_sheet.jpg portraits $c 3,2 $F5; done
+# Gemini painted Hana's skin bright yellow: shift it to a warm light tan first.
+python3 $T/skin_fix.py source/hana_sheet.jpg source/hana_sheet_fixed.png
+python3 $T/skin_fix.py source/hana_walk_sheet.jpg source/hana_walk_sheet_fixed.png
+python3 $T/sheet.py source/hana_sheet_fixed.png portraits hana 3,2 $F5
 HH_SAT=1.0 python3 $T/sheet.py source/june_sheet.jpg portraits june 3,2 $F5
 town() { s=$1; shift; a=""; for n in "$@"; do a="$a ${n}_neutral ${n}_happy ${n}_sad"; done; python3 $T/sheet.py source/${s}_sheet.jpg portraits . 3,3,3 $a; }
 town town1 mayor pip poppy
@@ -15,8 +19,9 @@ town town4 benji gull lottie
 # Wide hats fool the head measurement on this sheet; set the frame by hand.
 HH_FRAME=760 town town5 hugo jed marigold
 tmp=$(mktemp -d)
-for c in rosie kai mira theo silas mayor pip tibbs ines fennick wren clementine benji lottie marigold jed hugo gull ollie poppy; do python3 $T/sprite.py source/${c}_walk_sheet.jpg $tmp $c 32 48; cp $tmp/${c}_walk.png sprites/; done
+for c in rosie kai mira theo silas mayor pip tibbs ines fennick wren clementine benji lottie marigold jed hugo gull ollie poppy amara priya; do python3 $T/sprite.py source/${c}_walk_sheet.jpg $tmp $c 32 48; cp $tmp/${c}_walk.png sprites/; done
 HH_SAT=1.0 python3 $T/sprite.py source/june_walk_sheet.jpg $tmp june 32 48; cp $tmp/june_walk.png sprites/
+python3 $T/sprite.py source/hana_walk_sheet_fixed.png $tmp hana 32 48; cp $tmp/hana_walk.png sprites/
 # Where Gemini drew a frame facing the wrong way, reuse a good frame from the same row.
 # fix NAME ROW TO FROM   (rows: 0 down, 1 left, 2 right, 3 up; frames 0 to 3)
 fix() { python3 -c "
