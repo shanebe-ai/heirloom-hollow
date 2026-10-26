@@ -48,7 +48,6 @@ export class House extends Phaser.Scene {
     this.stand(this.player, 'up');
 
     const cam = this.cameras.main;
-    cam.setBounds(0, 0, W * T, H * T);
     cam.startFollow(this.player, true, 0.15, 0.15);
     cam.setRoundPixels(true);
     this.fitZoom();
@@ -78,7 +77,13 @@ export class House extends Phaser.Scene {
   fitZoom() {
     const w = this.scale.width, h = this.scale.height;
     const z = Math.max(1, Math.min(4, Math.round((Math.min(w, h * 1.4) / (10 * T)) * 2) / 2));
-    this.cameras.main.setZoom(z);
+    const cam = this.cameras.main;
+    cam.setZoom(z);
+    // A phone screen is taller than the room: keep the room in the middle of a dark
+    // surround, instead of pinned to the top left corner over the grass colour.
+    const vw = w / z, vh = h / z, rw = W * T, rh = H * T;
+    cam.setBounds(Math.min(0, (rw - vw) / 2), Math.min(0, (rh - vh) / 2), Math.max(rw, vw), Math.max(rh, vh));
+    cam.setBackgroundColor('#2b1d1c');
   }
 
   tileOf(s: Phaser.GameObjects.Sprite) { return { x: Math.floor(s.x / T), y: Math.floor((s.y - 4) / T) }; }
