@@ -1,0 +1,146 @@
+// The one game state, shared by the farm and house scenes and the panels.
+// It loads from the server under the player's farm code, saves itself back
+// every couple of minutes and whenever the player sleeps, and knows how a
+// night passes. Game code decides everything here; the AI never touches it.
+import { Save, Tile, newSave, advanceNight, passOutPenalty, DAY_START, MAX_ENERGY, SEASONS } from '../shared/rules.js';
+
+/** A day lasts 12 real minutes: 6am to 2am is 20 game hours. */
+export const GAME_MIN_PER_MS = (20 * 60) / (12 * 60 * 1000);
+
+/** The clock chip's words for the current save time, like "Spring 3  6:00am". */
+export function clockLabel(): string {
+  const s = G.save;
+  const m = Math.floor(s.minutes) % (24 * 60);
+  const hh = Math.floor(m / 60), mm = Math.floor(m / 10) * 10 % 60;
+  const h12 = ((hh + 11) % 12) + 1, ap = hh < 12 ? 'am' : 'pm';
+  return `${SEASONS[s.season]} ${s.day}  ${h12}:${String(mm).padStart(2, '0')}${ap}`;
+}
+
+export const G = {
+  save: newSave() as Save,
+  farmId: '',
+  loaded: false,
+  /** Lines for the morning summary card, set by a sleep or a pass out, read by the scene that wakes. */
+  pendingSummary: null as { title: string; lines: string[] } | null,
+  selectedTool: 'hand' as 'hoe' | 'can' | 'seeds' | 'hand',
+  selectedSeed: 'seed_turnip',
+};
+
+const ID_KEY = 'hh-farm-id';
+const MEMORY_KEY = 'hh-memory';
+
+function makeId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  // Older browsers: the same shape, made by hand.
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (ch) => {
+    const r = (Math.random() * 16) | 0;
+    return (ch === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+export function farmId(): string {
+  if (G.farmId) return G.farmId;
+  let id = '';
+  try { id = localStorage.getItem(ID_KEY) || ''; } catch { /* private mode */ }
+  if (!id) {
+    id = makeId();
+    try { localStorage.setItem(ID_KEY, id); } catch { /* private mode */ }
+  }
+  G.farmId = id;
+  return id;
+}
+
+/** Point this browser at a different farm code (typed in on another device, say). */
+export function useFarmId(id: string) {
+  G.farmId = id;
+  try { localStorage.setItem(ID_KEY, id); } catch { /* private mode */ }
+}
+
+/** Load the farm from the server, or start a new one. Keeps the chat memory
+ *  the browser already had when the save has none yet. */
+export async function loadGame(): Promise<void> {
+  const id = farmId();
+  try {
+    const res = await fetch(`api/farm/${id}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.version === 1) G.save = data as Save;
+    }
+  } catch { /* offline or first visit: a fresh farm below */ }
+  if (!G.save.chatMemory) {
+    try {
+      const old = localStorage.getItem(MEMORY_KEY);
+      if (old) G.save.chatMemory = JSON.parse(old);
+    } catch { /* nothing to carry over */ }
+  }
+  G.loaded = true;
+}
+
+let saving = false;
+let savesBlocked = false;
+/** Stop all saving from this page. For the moment the player switches to a
+ * different farm code: the page reloads, and the unload save would otherwise
+ * write this page's farm over the one they are switching to. */
+export function blockSaves() { savesBlocked = true; }
+/** Send the farm to the server. Quiet on failure; the next autosave retries. */
+export async function saveGame(): Promise<void> {
+  if (!G.loaded || saving || savesBlocked) return;
+  saving = true;
+  try {
+    await fetch(`api/farm/${farmId()}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(G.save),
+      keepalive: true, // still lands when the page is closing
+    });
+  } catch { /* offline: try again next time */ }
+  saving = false;
+}
+
+export function startAutosave() {
+  setInterval(() => { void saveGame(); }, 2 * 60 * 1000);
+  // Closing or switching away from the tab saves too, so a reload never
+  // loses the last thing the player did.
+  window.addEventListener('beforeunload', () => { void saveGame(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) void saveGame();
+  });
+}
+
+/**
+ * Night passes: the day rolls on, crops grow, the shipping box pays out and
+ * the farmer wakes at 6am with full energy. Passing out first costs 10 percent
+ * of their coins (capped at 50) and lands them in bed. Returns the summary.
+ */
+export function sleepNight(passedOut: boolean): { title: string; lines: string[] } {
+  const s = G.save;
+  const lines: string[] = [];
+  if (passedOut) {
+    const lost = passOutPenalty(s.coins);
+    s.coins -= lost;
+    if (lost > 0) lines.push(`You passed out where you stood. Someone carried you home, and ${lost} coins slipped from your pocket on the way.`);
+    else lines.push('You passed out where you stood. Someone carried you home to bed.');
+  }
+  const { lines: shipped } = advanceNight(s);
+  lines.push(...shipped);
+  s.minutes = DAY_START;
+  s.energy = MAX_ENERGY;
+  s.player = { x: 2, y: 3, scene: 'house' }; // beside the bed
+  const seasons = ['Spring', 'Summer', 'Autumn', 'Winter'];
+  const title = `${seasons[s.season]} ${s.day}, Year ${s.year}`;
+  if (!lines.length) lines.push('A quiet night. The farm is glad of the rest.');
+  G.pendingSummary = { title, lines };
+  void saveGame();
+  return G.pendingSummary;
+}
+
+/** The tile record for one map square, made when something first happens there. */
+export function tileAt(x: number, y: number): Tile {
+  const key = `${x},${y}`;
+  if (!G.save.tiles[key]) G.save.tiles[key] = { tilled: false };
+  return G.save.tiles[key];
+}
+
+export function tileKey(x: number, y: number): string {
+  return `${x},${y}`;
+}

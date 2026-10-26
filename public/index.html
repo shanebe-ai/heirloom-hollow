@@ -17,15 +17,38 @@
     #game { position: fixed; inset: 0; }
     canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
     #hud { position: fixed; top: max(10px, env(safe-area-inset-top)); left: 10px; right: 10px;
-      display: flex; justify-content: space-between; pointer-events: none; z-index: 5; }
+      display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; z-index: 5; }
+    .col { display: flex; flex-direction: column; gap: 6px; }
+    .col.right { align-items: flex-end; }
     .chip { background: var(--paper); border: 3px solid var(--ink); border-radius: 10px; padding: 4px 10px;
-      font-size: 17px; box-shadow: 0 3px 0 var(--edge); }
+      font-size: 17px; box-shadow: 0 3px 0 var(--edge); width: max-content; }
+    #energyBar { width: 108px; height: 14px; background: var(--paper); border: 3px solid var(--ink);
+      border-radius: 8px; box-shadow: 0 3px 0 var(--edge); overflow: hidden; }
+    #energyFill { height: 100%; width: 100%; background: #7dbb5e; transition: width .3s; }
+    #energyFill.low { background: #e2a63d; }
+    .hudbtns { display: flex; gap: 6px; pointer-events: auto; }
+    .hudbtn { font: 600 15px 'Pixelify Sans', monospace; color: var(--ink); background: var(--paper);
+      border: 3px solid var(--ink); border-radius: 10px; padding: 4px 10px; box-shadow: 0 3px 0 var(--edge); }
+    .hudbtn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--edge); }
+    #tired { position: fixed; top: 118px; width: 100%; text-align: center; font-size: 16px; color: #fff6e6;
+      text-shadow: 0 2px 0 #4a2826; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .5s; }
+    #toast { position: fixed; bottom: 96px; width: 100%; text-align: center; font-size: 16px; color: #fff6e6;
+      text-shadow: 0 2px 0 #4a2826; pointer-events: none; z-index: 9; opacity: 0; transition: opacity .3s; }
+    #tools { position: fixed; left: 0; right: 0; bottom: max(10px, env(safe-area-inset-bottom));
+      display: flex; justify-content: center; gap: 8px; z-index: 5; }
+    body.indoors #tools { display: none; }
+    .tool { width: 66px; height: 62px; background: var(--paper); border: 3px solid var(--ink); border-radius: 12px;
+      box-shadow: 0 3px 0 var(--edge); display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1px; font: 600 12px 'Pixelify Sans', monospace; color: var(--ink); padding: 2px; position: relative; }
+    .tool img { width: 30px; height: 30px; image-rendering: pixelated; }
+    .tool.sel { background: #ffe1a8; transform: translateY(-5px); box-shadow: 0 6px 0 var(--edge); }
+    .tool .n { position: absolute; top: -7px; right: -5px; background: #c9705a; color: var(--paper);
+      border: 2px solid var(--ink); border-radius: 999px; font-size: 12px; padding: 0 5px; }
     #talk { position: fixed; left: 10px; right: 10px; bottom: max(12px, env(safe-area-inset-bottom));
       max-width: 620px; margin: 0 auto; display: none; gap: 10px; align-items: stretch; z-index: 6;
       background: var(--paper); border: 4px solid var(--ink); border-radius: 14px; padding: 10px;
       box-shadow: 0 5px 0 var(--edge); }
     #talk.open { display: flex; }
-    #talk { position: fixed; }
     #talk img { width: 96px; height: 96px; image-rendering: pixelated; flex: none;
       background: #f7dcc0; border: 3px solid var(--ink); border-radius: 10px; }
     #talk .who { font-weight: 600; font-size: 19px; margin-bottom: 4px; }
@@ -42,14 +65,62 @@
     #say button { font: 600 17px 'Pixelify Sans', monospace; color: var(--paper); background: #c9705a;
       border: 3px solid var(--ink); border-radius: 8px; padding: 0 12px; }
     #say.hidden { display: none; }
-    #hint { position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); width: 100%; text-align: center;
+    .panel { position: fixed; left: 10px; right: 10px; bottom: 88px; max-width: 620px; margin: 0 auto;
+      display: none; z-index: 7; background: var(--paper); border: 4px solid var(--ink); border-radius: 14px;
+      padding: 12px; box-shadow: 0 5px 0 var(--edge); max-height: 58vh; overflow-y: auto; }
+    .panel.open { display: block; }
+    .panel h2 { margin: 0 0 8px; font-size: 20px; }
+    .panel .note { font-size: 15px; opacity: .8; margin: 8px 0 0; line-height: 1.35; }
+    .panel .x { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%;
+      border: 3px solid var(--ink); background: var(--paper); color: var(--ink); font: 600 18px/1 'Pixelify Sans', monospace; }
+    .row { display: flex; align-items: center; gap: 8px; padding: 7px 2px; border-bottom: 2px dashed #c98f5f; font-size: 17px; }
+    .row:last-child { border-bottom: none; }
+    .row .grow { flex: 1; }
+    .row .sub { font-size: 14px; opacity: .75; }
+    .pbtn { font: 600 15px 'Pixelify Sans', monospace; color: var(--paper); background: #c9705a;
+      border: 3px solid var(--ink); border-radius: 8px; padding: 5px 10px; }
+    .pbtn.soft { background: #7fae7a; }
+    .pbtn:disabled { opacity: .45; }
+    .bigrow { display: flex; gap: 10px; margin-top: 10px; }
+    .bigrow .pbtn { flex: 1; padding: 10px; font-size: 17px; }
+    #seedPop { bottom: 88px; }
+    #sleepPanel, #summaryPanel { z-index: 8; }
+    #summaryLines { font-size: 17px; line-height: 1.45; }
+    #farmCode { font-size: 13.5px; word-break: break-all; background: #fff; border: 2px dashed #c98f5f;
+      border-radius: 8px; padding: 6px 8px; margin: 6px 0; user-select: text; -webkit-user-select: text; }
+    #farmCodeInput { width: 100%; box-sizing: border-box; font: 15px 'Pixelify Sans', monospace; color: var(--ink);
+      background: #fff; border: 3px solid var(--ink); border-radius: 8px; padding: 7px 8px; margin: 6px 0; }
+    #fade { position: fixed; inset: 0; background: #14100e; opacity: 0; pointer-events: none; transition: opacity .6s; z-index: 20; }
+    #fade.on { opacity: 1; }
+    #hint { position: fixed; bottom: 84px; width: 100%; text-align: center;
       font-size: 16px; color: #fff6e6; text-shadow: 0 2px 0 #4a2826; pointer-events: none; z-index: 4;
       transition: opacity 1s; }
   </style>
 </head>
 <body>
   <div id="game"></div>
-  <div id="hud"><div class="chip" id="clock">Spring 1</div><div class="chip" id="where">Hazel's Farm</div></div>
+  <div id="hud">
+    <div class="col">
+      <div class="chip" id="clock">Spring 1</div>
+      <div class="chip" id="coins">500 coins</div>
+    </div>
+    <div class="col right">
+      <div class="chip" id="where">Hazel's Farm</div>
+      <div id="energyBar"><div id="energyFill"></div></div>
+      <div class="hudbtns">
+        <button class="hudbtn" id="bagBtn">Bag</button>
+        <button class="hudbtn" id="gearBtn">Farm</button>
+      </div>
+    </div>
+  </div>
+  <div id="tired">You're getting tired.</div>
+  <div id="toast"></div>
+  <div id="tools">
+    <button class="tool" data-tool="hoe"><img alt=""><span>Hoe</span></button>
+    <button class="tool" data-tool="can"><img alt=""><span>Can</span><span class="n" id="canN">20</span></button>
+    <button class="tool" data-tool="seeds"><img alt=""><span id="seedName">Seeds</span><span class="n" id="seedN">10</span></button>
+    <button class="tool" data-tool="hand"><img alt=""><span>Hand</span></button>
+  </div>
   <div id="talk">
     <button id="bye" aria-label="Close">×</button>
     <img alt="">
@@ -62,7 +133,53 @@
       </form>
     </div>
   </div>
-  <div id="hint">Tap anywhere to walk. Tap someone to talk.</div>
+  <div class="panel" id="bagPanel">
+    <button class="x" data-close aria-label="Close">×</button>
+    <h2>Your bag</h2>
+    <div id="bagList"></div>
+    <p class="note">Produce earns its keep in the wooden shipping box by the farmhouse. Seeds plant from the toolbar.</p>
+  </div>
+  <div class="panel" id="shopPanel">
+    <button class="x" data-close aria-label="Close">×</button>
+    <h2>The seed sack</h2>
+    <div id="shopList"></div>
+    <p class="note">The sack hangs by the signpost until Pip and Poppy open their shop. You have <span id="shopCoins">500</span> coins.</p>
+  </div>
+  <div class="panel" id="shipPanel">
+    <button class="x" data-close aria-label="Close">×</button>
+    <h2>Shipping box</h2>
+    <div id="shipList"></div>
+    <p class="note">Anything in the box ships tonight, and you are paid in the morning.</p>
+  </div>
+  <div class="panel" id="seedPop">
+    <button class="x" data-close aria-label="Close">×</button>
+    <h2>Which seeds?</h2>
+    <div id="seedList"></div>
+  </div>
+  <div class="panel" id="sleepPanel">
+    <h2>Go to sleep?</h2>
+    <p class="note">The farm will grow while you rest, and anything in the shipping box will be paid by morning.</p>
+    <div class="bigrow">
+      <button class="pbtn soft" id="sleepYes">Yes, sleep</button>
+      <button class="pbtn" id="sleepNo">Not yet</button>
+    </div>
+  </div>
+  <div class="panel" id="summaryPanel">
+    <h2 id="summaryTitle">Spring 2</h2>
+    <div id="summaryLines"></div>
+    <div class="bigrow"><button class="pbtn soft" id="summaryOk">Start the day</button></div>
+  </div>
+  <div class="panel" id="settingsPanel">
+    <button class="x" data-close aria-label="Close">×</button>
+    <h2>Your farm</h2>
+    <p class="note">This is your farm code. Type it on another phone or computer to play the same farm there.</p>
+    <div id="farmCode"></div>
+    <input id="farmCodeInput" placeholder="Paste a farm code here" autocomplete="off">
+    <div class="bigrow"><button class="pbtn soft" id="useCode">Use this code</button></div>
+    <p class="note">Switching codes loads that farm and leaves this one saved as it is.</p>
+  </div>
+  <div id="fade"></div>
+  <div id="hint">Tap to walk. Choose a tool below, then tap a tile to work it.</div>
   <script src="build/app.js"></script>
 </body>
 </html>

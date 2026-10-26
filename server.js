@@ -6,9 +6,14 @@ import { fileURLToPath } from 'node:url';
 import { loadEnv, config } from './server/env.js';
 import { AIService, AiandProvider, GroqProvider, GeminiProvider } from './server/ai.js';
 import { talk, Limits } from './server/talk.js';
+import { validFarmId, validateSave, FarmStore, MAX_SAVE_BYTES } from './server/farms.js';
 
 loadEnv();
 const cfg = config();
+const farms = new FarmStore(join(fileURLToPath(new URL('.', import.meta.url)), 'saves'));
+// Saves are cheap but not free: a player autosaves every couple of minutes,
+// so 30 a minute each is generous headroom that still stops a flood.
+const saveLimits = new Limits(30, Number.MAX_SAFE_INTEGER);
 const ai = new AIService([
   { provider: new AiandProvider(cfg.aiand.key, cfg.aiand.model, cfg.timeoutMs, cfg.aiand.effort), rpm: cfg.aiand.rpm },
   { provider: new GroqProvider(cfg.groq.key, cfg.groq.model, cfg.timeoutMs), rpm: cfg.groq.rpm },
@@ -47,6 +52,22 @@ function readBody(req, max = 8000) {
 }
 
 async function api(req, res, path) {
+  const farmMatch = /^\/api\/farm\/(.+)$/.exec(path);
+  if (farmMatch && (req.method === 'GET' || req.method === 'PUT')) {
+    const id = farmMatch[1];
+    if (!validFarmId(id)) return send(res, 400, { error: 'bad farm id' });
+    if (req.method === 'GET') {
+      const save = await farms.load(id);
+      return save ? send(res, 200, save) : send(res, 404, { error: 'no farm with that code' });
+    }
+    if (!saveLimits.allow(req.socket.remoteAddress || '?')) return send(res, 429, { error: 'saving too often' });
+    let body;
+    try { body = JSON.parse(await readBody(req, MAX_SAVE_BYTES)); } catch { return send(res, 400, { error: 'bad request' }); }
+    const save = validateSave(body);
+    if (!save) return send(res, 400, { error: 'that save does not look right' });
+    await farms.store(id, save);
+    return send(res, 200, { ok: true });
+  }
   if (path === '/api/talk' && req.method === 'POST') {
     let body;
     try { body = JSON.parse(await readBody(req)); } catch { return send(res, 400, { error: 'bad request' }); }

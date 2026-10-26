@@ -3,3 +3,4 @@ public/build/
 public/assets/
 __pycache__/
 .env
+saves/

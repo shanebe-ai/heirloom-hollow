@@ -1,6 +1,11 @@
-// Heirloom Hollow, milestone 1 start: walk Hazel's farm on a phone, meet a few visitors, pet the fox.
+// Heirloom Hollow: walk Hazel's farm on a phone, work the field, meet the
+// visitors, and sleep in the farmhouse. Milestone 1: a farm that grows.
 import Phaser from 'phaser';
-import { T, COLS, ROWS, layout, drawGround, drawHouse, drawTree, drawFence, drawSign, Farm } from './world';
+import { T, COLS, ROWS, layout, drawGround, drawHouse, drawTree, drawFence, drawSign, drawSoil, drawCrop, drawDeadPlant, drawShippingBox, Farm } from './world';
+import { G, loadGame, saveGame, startAutosave, tileAt, tileKey, sleepNight, GAME_MIN_PER_MS, clockLabel } from './state';
+import { initUI, refreshHud, openShop, openShip, showSummary, toast, fade, anyPanelOpen, closePanels } from './ui';
+import { SEASONS, DAY_END, ENERGY_COSTS, TIRED_BELOW, CROPS, ITEMS, cropStage, isRipe, harvestTile, CAN_CAPACITY } from '../shared/rules.js';
+import { House } from './house';
 
 type Dir = 'down' | 'left' | 'right' | 'up';
 const DIRS: Dir[] = ['down', 'left', 'right', 'up'];
@@ -17,7 +22,7 @@ interface Person {
   home: { x: number; y: number };
 }
 
-const VISITORS = [
+export const VISITORS = [
   { key: 'kai', name: 'Kai', at: { x: 14, y: 13 }, lines: [
     'Careful round the forge, the sparks bite.',
     'You want honest? Your fence leans a bit.',
@@ -55,9 +60,27 @@ const BRAMBLE_LINES = [
   'Bramble lets you scratch behind his notched ear. Just this once.',
 ];
 
-const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
-/** A day lasts 12 real minutes: 6am to 2am is 20 game hours. */
-const GAME_MIN_PER_MS = (20 * 60) / (12 * 60 * 1000);
+/** Loads every sprite sheet once and builds the shared animations, then
+ *  starts whichever scene the farmer was last in. */
+class Boot extends Phaser.Scene {
+  constructor() { super('boot'); }
+  preload() {
+    const sheet = (k: string) => this.load.spritesheet(k, `assets/sprites/${k}_walk.png`, { frameWidth: 32, frameHeight: 48 });
+    sheet('rosie');
+    for (const v of VISITORS) sheet(v.key);
+    this.load.spritesheet('bramble', 'assets/sprites/bramble.png', { frameWidth: 32, frameHeight: 32 });
+  }
+  create() {
+    for (const key of ['rosie', ...VISITORS.map((v) => v.key)])
+      DIRS.forEach((d, row) => this.anims.create({
+        key: `${key}-${d}`, frameRate: 8, repeat: -1,
+        frames: this.anims.generateFrameNumbers(key, { start: row * 4, end: row * 4 + 3 }),
+      }));
+    this.anims.create({ key: 'fox-sit', frameRate: 2, repeat: -1, frames: this.anims.generateFrameNumbers('bramble', { start: 8, end: 11 }) });
+    this.anims.create({ key: 'fox-sleep', frameRate: 1.5, repeat: -1, frames: this.anims.generateFrameNumbers('bramble', { start: 12, end: 15 }) });
+    this.scene.start(G.save.player.scene === 'house' ? 'house' : 'farm');
+  }
+}
 
 class Farmyard extends Phaser.Scene {
   farm!: Farm;
@@ -72,29 +95,52 @@ class Farmyard extends Phaser.Scene {
   chatWith: Person | null = null;
   waiting = false;
   /** What each person and the farmer have said lately, so they remember the conversation. */
-  memory = loadMemory();
-  minutes = 6 * 60;
+  memory: Record<string, { from: string; text: string }[]> = {};
   night!: Phaser.GameObjects.Rectangle;
   marker!: Phaser.GameObjects.Graphics;
+  tileGroup!: Phaser.GameObjects.Group;
+  pendingTile: { x: number; y: number } | null = null;
+  interactTarget: 'sign' | 'ship' | null = null;
+  busy = false;
+  lastTile = { x: -1, y: -1 };
 
   constructor() { super('farm'); }
 
-  preload() {
-    const sheet = (k: string) => this.load.spritesheet(k, `assets/sprites/${k}_walk.png`, { frameWidth: 32, frameHeight: 48 });
-    sheet('rosie');
-    for (const v of VISITORS) sheet(v.key);
-    this.load.spritesheet('bramble', 'assets/sprites/bramble.png', { frameWidth: 32, frameHeight: 32 });
+  private canvasTex(key: string, make: () => HTMLCanvasElement) {
+    if (!this.textures.exists(key)) this.textures.addCanvas(key, make());
   }
 
   create() {
     (window as unknown as { hh: Farmyard }).hh = this; // handy for testing in the browser
+    (window as unknown as { hhG: typeof G }).hhG = G;
+    // Phaser reuses this scene object on every visit to the farm, so anything
+    // per visit starts over here rather than leaking in from the last one.
+    this.people = [];
+    this.playerPath = [];
+    this.talkTarget = null;
+    this.interactTarget = null;
+    this.pendingTile = null;
+    this.talking = false;
+    this.chatWith = null;
+    this.waiting = false;
+    this.busy = false;
+    this.lastTile = { x: -1, y: -1 };
+    document.body.classList.remove('indoors');
+    document.getElementById('where')!.textContent = "Hazel's Farm";
+    this.memory = G.save.chatMemory ?? {};
     this.farm = layout();
     const f = this.farm;
-    this.textures.addCanvas('ground', drawGround(f));
-    this.textures.addCanvas('house', drawHouse());
-    this.textures.addCanvas('fence', drawFence());
-    this.textures.addCanvas('sign', drawSign());
-    for (let i = 0; i < 3; i++) this.textures.addCanvas(`tree${i}`, drawTree(11 + i * 17));
+    this.canvasTex('ground', () => drawGround(f));
+    this.canvasTex('house', () => drawHouse());
+    this.canvasTex('fence', () => drawFence());
+    this.canvasTex('sign', () => drawSign());
+    this.canvasTex('shipbox', () => drawShippingBox());
+    this.canvasTex('soil', () => drawSoil(false));
+    this.canvasTex('soilWet', () => drawSoil(true));
+    this.canvasTex('deadPlant', () => drawDeadPlant());
+    for (const crop of Object.keys(CROPS))
+      for (let stage = 0; stage <= 4; stage++) this.canvasTex(`crop_${crop}_${stage}`, () => drawCrop(crop, stage));
+    for (let i = 0; i < 3; i++) this.canvasTex(`tree${i}`, () => drawTree(11 + i * 17));
 
     this.add.image(0, 0, 'ground').setOrigin(0).setDepth(-10);
     const h = f.house;
@@ -103,18 +149,17 @@ class Farmyard extends Phaser.Scene {
     for (const fe of f.fences) this.add.image(fe.x * T, fe.y * T, 'fence').setOrigin(0).setDepth(fe.y * T + 28);
     this.add.image(f.sign.x * T + 16, (f.sign.y + 1) * T, 'sign').setOrigin(0.5, 1).setDepth((f.sign.y + 1) * T);
     f.blocked[f.sign.y][f.sign.x] = true;
+    this.add.image(f.shipping.x * T, f.shipping.y * T, 'shipbox').setOrigin(0).setDepth(f.shipping.y * T + 28);
+    f.blocked[f.shipping.y][f.shipping.x] = true;
+    // The farmhouse door is a way in, not a wall: walking onto it goes inside.
+    f.blocked[f.house.door.y][f.house.door.x] = false;
 
+    this.tileGroup = this.add.group();
+    this.refreshTiles();
     this.marker = this.add.graphics().setDepth(-5);
 
-    for (const key of ['rosie', ...VISITORS.map(v => v.key)])
-      DIRS.forEach((d, row) => this.anims.create({
-        key: `${key}-${d}`, frameRate: 8, repeat: -1,
-        frames: this.anims.generateFrameNumbers(key, { start: row * 4, end: row * 4 + 3 }),
-      }));
-    this.anims.create({ key: 'fox-sit', frameRate: 2, repeat: -1, frames: this.anims.generateFrameNumbers('bramble', { start: 8, end: 11 }) });
-    this.anims.create({ key: 'fox-sleep', frameRate: 1.5, repeat: -1, frames: this.anims.generateFrameNumbers('bramble', { start: 12, end: 15 }) });
-
-    this.player = this.add.sprite(f.start.x * T + 16, f.start.y * T + 28, 'rosie', 1).setOrigin(0.5, 1);
+    const start = G.save.player.scene === 'farm' ? G.save.player : f.start;
+    this.player = this.add.sprite(start.x * T + 16, start.y * T + 28, 'rosie', 1).setOrigin(0.5, 1);
     for (const v of VISITORS) {
       const s = this.add.sprite(v.at.x * T + 16, v.at.y * T + 28, v.key, 1).setOrigin(0.5, 1);
       s.setInteractive({ useHandCursor: true, pixelPerfect: false });
@@ -137,7 +182,7 @@ class Farmyard extends Phaser.Scene {
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT', false) as Record<string, Phaser.Input.Keyboard.Key>;
 
     this.input.on('gameobjectdown', (_p: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
-      if (this.talking) return;
+      if (this.talking || this.busy || anyPanelOpen()) return;
       const person = this.people.find(p => p.sprite === obj);
       this.talkTarget = person ?? (obj === this.bramble ? 'bramble' : null);
       const target = person ? person.sprite : this.bramble;
@@ -147,20 +192,133 @@ class Farmyard extends Phaser.Scene {
       // Tapping a person is handled above; checking that first stops a tap on someone
       // standing right beside you from opening the chat and closing it again at once.
       if (over.length) return;
+      if (this.busy || anyPanelOpen()) return;
       if (this.talking) { this.closeTalk(); return; }
       this.talkTarget = null;
-      this.walkTo(Math.floor(p.worldX / T), Math.floor(p.worldY / T), false);
+      this.routeTap(Math.floor(p.worldX / T), Math.floor(p.worldY / T));
     });
     // Taps inside the chat box stay there; the cross or a tap on the farm closes it.
-    document.getElementById('talk')!.addEventListener('pointerdown', e => e.stopPropagation());
-    document.getElementById('bye')!.addEventListener('click', () => this.closeTalk());
-    document.getElementById('say')!.addEventListener('submit', e => {
-      e.preventDefault();
-      const input = document.getElementById('said') as HTMLInputElement;
-      const text = input.value.trim();
-      if (text && this.chatWith && !this.waiting) { input.value = ''; this.ask(this.chatWith, text); }
-    });
+    // These live on the document, not the scene, so they are wired once only.
+    if (!domWired) {
+      domWired = true;
+      document.getElementById('talk')!.addEventListener('pointerdown', e => e.stopPropagation());
+      document.getElementById('bye')!.addEventListener('click', () => farmScene?.closeTalk());
+      document.getElementById('say')!.addEventListener('submit', e => {
+        e.preventDefault();
+        const input = document.getElementById('said') as HTMLInputElement;
+        const text = input.value.trim();
+        if (text && farmScene?.chatWith && !farmScene.waiting) { input.value = ''; farmScene.ask(farmScene.chatWith, text); }
+      });
+    }
+    farmScene = this;
     setTimeout(() => { document.getElementById('hint')!.style.opacity = '0'; }, 6000);
+    refreshHud();
+    if (G.pendingSummary) {
+      const summary = G.pendingSummary;
+      G.pendingSummary = null;
+      void showSummary(summary);
+    }
+  }
+
+  /** Work out what a tap on a tile means: chat targets, the sign, the box,
+   *  a tool job, or just walking there. */
+  routeTap(x: number, y: number) {
+    const f = this.farm;
+    if (x === f.sign.x && y === f.sign.y) { this.interactTarget = 'sign'; this.walkTo(x, y, true); return; }
+    if (x === f.shipping.x && y === f.shipping.y) { this.interactTarget = 'ship'; this.walkTo(x, y, true); return; }
+    this.interactTarget = null;
+    if (this.toolApplies(x, y)) { this.pendingTile = { x, y }; this.walkTo(x, y, true); return; }
+    this.pendingTile = null;
+    this.walkTo(x, y, false);
+  }
+
+  /** Would the tool in hand do anything on this tile? */
+  toolApplies(x: number, y: number): boolean {
+    const tile = G.save.tiles[tileKey(x, y)];
+    const ground = this.farm.ground[y]?.[x];
+    switch (G.selectedTool) {
+      case 'hoe': {
+        if (tile?.dead) return true;
+        const fd = this.farm.field;
+        return !tile?.tilled && ground === 'grass' && x >= fd.x && x < fd.x + fd.w && y >= fd.y && y < fd.y + fd.h;
+      }
+      case 'can':
+        return ground === 'water' || (!!tile?.crop && !tile.watered && !tile.dead);
+      case 'seeds':
+        return !!tile?.tilled && !tile.crop;
+      case 'hand':
+        return !!tile && isRipe(tile);
+    }
+  }
+
+  /** Do the tool's work on a tile the farmer has walked up to. */
+  applyTool(x: number, y: number) {
+    const s = G.save;
+    const key = tileKey(x, y);
+    const tile = s.tiles[key];
+    const face: Dir = x > this.tileOf(this.player).x ? 'right' : x < this.tileOf(this.player).x ? 'left'
+      : y > this.tileOf(this.player).y ? 'down' : 'up';
+    this.playerDir = face;
+    this.stand(this.player, face);
+    if (s.energy <= 0) { toast('You are out of energy. A good sleep will bring it back.'); return; }
+    let worked = false;
+    if (G.selectedTool === 'hoe') {
+      if (tile?.dead) {
+        delete tile.crop; delete tile.age; delete tile.dead;
+        tile.tilled = true;
+        s.energy -= ENERGY_COSTS.hoe;
+        worked = true;
+      } else if (this.toolApplies(x, y)) {
+        tileAt(x, y).tilled = true;
+        s.energy -= ENERGY_COSTS.hoe;
+        worked = true;
+      }
+    } else if (G.selectedTool === 'can') {
+      if (this.farm.ground[y]?.[x] === 'water') {
+        if (s.can < CAN_CAPACITY) { s.can = CAN_CAPACITY; toast('You fill the can at the pond.'); worked = true; }
+      } else if (tile?.crop && !tile.watered && !tile.dead) {
+        if (s.can <= 0) { toast('The can is empty. Fill it at the pond.'); return; }
+        tile.watered = true;
+        s.can -= 1;
+        s.energy -= ENERGY_COSTS.water;
+        worked = true;
+      }
+    } else if (G.selectedTool === 'seeds') {
+      const item = G.selectedSeed;
+      const crop = ITEMS[item]?.crop;
+      if (tile?.tilled && !tile.crop && crop) {
+        if ((s.inventory[item] ?? 0) <= 0) { toast('Out of those seeds. The sack by the signpost has more.'); return; }
+        s.inventory[item] -= 1;
+        if (!s.inventory[item]) delete s.inventory[item];
+        tile.crop = crop;
+        tile.age = 0;
+        tile.watered = false;
+        worked = true;
+      }
+    } else if (G.selectedTool === 'hand') {
+      const gained = harvestTile(s, key);
+      if (gained) {
+        toast(`Picked a ${ITEMS[gained].name.toLowerCase()}.`);
+        worked = true;
+      }
+    }
+    if (worked) {
+      s.energy = Math.max(0, s.energy);
+      this.tweens.add({ targets: this.player, y: this.player.y - 4, duration: 110, yoyo: true, ease: 'Quad.easeOut' });
+      this.refreshTiles();
+      refreshHud();
+    }
+  }
+
+  /** Redraw the tilled soil and crops from the save. */
+  refreshTiles() {
+    this.tileGroup.clear(true, true);
+    for (const [key, tile] of Object.entries(G.save.tiles)) {
+      const [x, y] = key.split(',').map(Number);
+      if (tile.tilled) this.tileGroup.add(this.add.image(x * T, y * T, tile.watered ? 'soilWet' : 'soil').setOrigin(0).setDepth(1));
+      if (tile.crop) this.tileGroup.add(this.add.image(x * T, y * T, tile.dead ? 'deadPlant' : `crop_${tile.crop}_${cropStage(tile)}`).setOrigin(0).setDepth(2));
+      else if (tile.dead) this.tileGroup.add(this.add.image(x * T, y * T, 'deadPlant').setOrigin(0).setDepth(2));
+    }
   }
 
   /** Roughly 10 tiles across on a phone, more on a bigger screen. */
@@ -218,7 +376,24 @@ class Farmyard extends Phaser.Scene {
     this.marker.clear();
     const end = path[path.length - 1];
     if (end) this.marker.lineStyle(2, 0xfff6e6, 0.9).strokeRect(end.x * T + 3, end.y * T + 3, T - 6, T - 6);
-    if (beside && !path.length && this.talkTarget) this.openTalk(this.talkTarget);
+    if (beside && !path.length) this.arrived();
+  }
+
+  /** Fires when the farmer reaches whatever they were walking to. */
+  arrived() {
+    if (this.talkTarget) { this.openTalk(this.talkTarget); return; }
+    if (this.interactTarget) {
+      const target = this.interactTarget;
+      this.interactTarget = null;
+      if (target === 'sign') openShop();
+      else openShip();
+      return;
+    }
+    if (this.pendingTile) {
+      const { x, y } = this.pendingTile;
+      this.pendingTile = null;
+      this.applyTool(x, y);
+    }
   }
 
   /** Moves a sprite along its path; returns true while still walking. */
@@ -244,7 +419,8 @@ class Farmyard extends Phaser.Scene {
   update(time: number, delta: number) {
     const dt = delta / 1000;
     this.tickClock(delta);
-    if (this.talking || document.activeElement?.id === 'said') { this.depthSort(); return; }
+    if (this.busy) return;
+    if (this.talking || document.activeElement?.id === 'said' || anyPanelOpen()) { this.depthSort(); return; }
 
     // Keyboard on a computer: walk one tile at a time in the pressed direction.
     const k = this.keys;
@@ -258,24 +434,34 @@ class Farmyard extends Phaser.Scene {
       else this.stand(this.player, d);
     }
 
-    const walking = this.step(this.player, this.playerPath, 92, dt, 'rosie', d => { this.playerDir = d; });
+    const speed = G.save.energy < TIRED_BELOW ? 58 : 92;
+    const walking = this.step(this.player, this.playerPath, speed, dt, 'rosie', d => { this.playerDir = d; });
     if (!walking) {
       if (this.player.anims.isPlaying) this.stand(this.player, this.playerDir);
       this.marker.clear();
-      if (this.talkTarget) this.openTalk(this.talkTarget);
+      if (this.talkTarget || this.interactTarget || this.pendingTile) this.arrived();
     }
     // A little bob in her step.
     this.player.setDisplayOrigin(16, walking ? 48 + Math.abs(Math.sin(time / 90)) : 48);
+
+    // Keep the save knowing where the farmer stands, and notice the farmhouse door.
+    const here = this.tileOf(this.player);
+    if (here.x !== this.lastTile.x || here.y !== this.lastTile.y) {
+      this.lastTile = here;
+      G.save.player = { x: here.x, y: here.y, scene: 'farm' };
+      const door = this.farm.house.door;
+      if (here.x === door.x && here.y === door.y) { this.enterHouse(); return; }
+    }
 
     // Visitors wander near where they started, pausing now and then.
     for (const p of this.people) {
       if (this.step(p.sprite, p.path, p.speed, dt, p.key, d => { p.dir = d; })) continue;
       if (p.sprite.anims.isPlaying) { this.stand(p.sprite, p.dir); p.idleUntil = time + 1500 + Math.random() * 4000; }
       if (time > p.idleUntil) {
-        const here = this.tileOf(p.sprite);
+        const hereV = this.tileOf(p.sprite);
         const x = p.home.x + Math.floor(Math.random() * 9) - 4, y = p.home.y + Math.floor(Math.random() * 7) - 3;
         const pt = this.tileOf(this.player);
-        if (this.free(x, y) && !(x === pt.x && y === pt.y)) p.path = this.findPath(here, { x, y }, false).slice(0, 8);
+        if (this.free(x, y) && !(x === pt.x && y === pt.y)) p.path = this.findPath(hereV, { x, y }, false).slice(0, 8);
         p.idleUntil = time + 800;
       }
     }
@@ -283,22 +469,47 @@ class Farmyard extends Phaser.Scene {
   }
 
   depthSort() {
-    this.player.setDepth(this.player.y);
+    this.player.setDepth(this.player.y + (this.tileOf(this.player).y >= 5 && this.tileOf(this.player).x === this.farm.house.door.x ? 40 : 0));
     for (const p of this.people) p.sprite.setDepth(p.sprite.y);
     this.bramble.setDepth(this.bramble.y);
   }
 
+  enterHouse() {
+    if (this.busy) return;
+    this.busy = true;
+    this.playerPath = [];
+    fade(true);
+    window.setTimeout(() => {
+      G.save.player = { x: 4, y: 6, scene: 'house' };
+      void saveGame();
+      this.scene.start('house');
+      fade(false);
+    }, 650);
+  }
+
+  passOut() {
+    if (this.busy) return;
+    this.busy = true;
+    if (this.talking) this.closeTalk();
+    closePanels();
+    this.playerPath = [];
+    fade(true);
+    window.setTimeout(() => {
+      sleepNight(true);
+      this.scene.start('house');
+      fade(false);
+    }, 800);
+  }
+
   tickClock(delta: number) {
-    this.minutes += delta * GAME_MIN_PER_MS;
-    if (this.minutes >= 26 * 60) this.minutes = 6 * 60; // a new morning
-    const m = Math.floor(this.minutes) % (24 * 60);
-    const hh = Math.floor(m / 60), mm = Math.floor(m / 10) * 10 % 60;
-    const h12 = ((hh + 11) % 12) + 1, ap = hh < 12 ? 'am' : 'pm';
+    const s = G.save;
+    s.minutes += delta * GAME_MIN_PER_MS;
+    if (s.minutes >= DAY_END) { this.passOut(); return; }
     const el = document.getElementById('clock')!;
-    const text = `${SEASONS[0]} 1  ${h12}:${String(mm).padStart(2, '0')}${ap}`;
+    const text = clockLabel();
     if (el.textContent !== text) el.textContent = text;
     // Evening falls from 6pm, full night by 10pm.
-    const dark = Phaser.Math.Clamp((this.minutes - 18 * 60) / (4 * 60), 0, 1) * 0.55;
+    const dark = Phaser.Math.Clamp((s.minutes - 18 * 60) / (4 * 60), 0, 1) * 0.55;
     this.night.setFillStyle(0x1a1840, dark);
     if (dark > 0.3 && this.bramble.anims.currentAnim?.key !== 'fox-sleep') this.bramble.play('fox-sleep');
     if (dark <= 0.3 && this.bramble.anims.currentAnim?.key !== 'fox-sit') this.bramble.play('fox-sit');
@@ -357,7 +568,7 @@ class Farmyard extends Phaser.Scene {
       const res = await fetch('api/talk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ who: who.key, said, history, context: { time: this.clockText(), season: 'Spring', day: 1 } }),
+        body: JSON.stringify({ who: who.key, said, history, context: { time: this.clockText(), season: SEASONS[G.save.season], day: G.save.day } }),
       });
       if (res.ok) reply = await res.json();
     } catch { /* offline: their written line it is */ }
@@ -370,11 +581,12 @@ class Farmyard extends Phaser.Scene {
     if (said) mem.push({ from: 'player', text: said });
     mem.push({ from: who.key, text: reply.line });
     this.memory[who.key] = mem.slice(-8);
+    G.save.chatMemory = this.memory;
     saveMemory(this.memory);
   }
 
   clockText() {
-    return document.getElementById('clock')!.textContent!.replace(/^Spring 1\s+/, '');
+    return clockLabel().replace(/^\S+ \d+\s+/, '');
   }
 
   closeTalk() {
@@ -387,19 +599,24 @@ class Farmyard extends Phaser.Scene {
 }
 
 type Memory = Record<string, { from: string; text: string }[]>;
-function loadMemory(): Memory {
-  try { return JSON.parse(localStorage.getItem('hh-memory') || '{}'); } catch { return {}; }
-}
+/** The live farm scene, for the document level chat handlers wired once below. */
+let farmScene: Farmyard | null = null;
+let domWired = false;
 function saveMemory(m: Memory) {
   try { localStorage.setItem('hh-memory', JSON.stringify(m)); } catch { /* private mode: they forget, that's fine */ }
 }
 
-new Phaser.Game({
-  type: Phaser.AUTO,
-  parent: 'game',
-  backgroundColor: '#7dbb5e',
-  pixelArt: true,
-  roundPixels: true,
-  scale: { mode: Phaser.Scale.RESIZE, width: window.innerWidth, height: window.innerHeight },
-  scene: [Farmyard],
-});
+void (async () => {
+  await loadGame();
+  initUI();
+  startAutosave();
+  new Phaser.Game({
+    type: Phaser.AUTO,
+    parent: 'game',
+    backgroundColor: '#7dbb5e',
+    pixelArt: true,
+    roundPixels: true,
+    scale: { mode: Phaser.Scale.RESIZE, width: window.innerWidth, height: window.innerHeight },
+    scene: [Boot, Farmyard, House],
+  });
+})();
