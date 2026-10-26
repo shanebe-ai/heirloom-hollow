@@ -49,6 +49,12 @@ export function farmerKey(): string {
   return p?.gender === 'boy' ? 'rowan' : 'rosie';
 }
 
+/** The sheet for what the farmer carries, or '' for empty hands. */
+export function farmerPack(): string {
+  const a = G.save.profile?.accessory;
+  return a === 'backpack' ? 'pack' : a === 'purse' ? 'purse' : '';
+}
+
 function makeId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   // Older browsers: the same shape, made by hand.

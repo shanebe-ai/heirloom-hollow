@@ -23,7 +23,7 @@ export interface Save {
   player: { x: number; y: number; scene: 'farm' | 'house' };
   chatMemory?: Record<string, { from: string; text: string }[]>;
   guide?: { seen: boolean; off: boolean; done: string[] };
-  profile?: { name: string; gender: 'girl' | 'boy'; look?: string };
+  profile?: { name: string; gender: 'girl' | 'boy'; look?: string; accessory?: string };
 }
 
 export interface CropDef {
@@ -58,6 +58,7 @@ export declare const ENERGY_COSTS: Record<'hoe' | 'water' | 'plant' | 'harvest',
 export declare const GUIDE_STEP_IDS: string[];
 export declare const FARMER_LOOKS: { key: string; name: string; gender: 'girl' | 'boy' }[];
 export declare const FLOWER_STALL: { item: string; price: number }[];
+export declare function nameIsKind(name: string): boolean;
 export declare const CROPS: Record<string, CropDef>;
 export declare const ITEMS: Record<string, ItemDef>;
 

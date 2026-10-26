@@ -146,3 +146,15 @@ test('the flower stall never pays out: every price beats the shipping box', asyn
   assert.equal(FARMER_LOOKS.length, 4);
   assert.equal(new Set(FARMER_LOOKS.map((l) => l.key)).size, 4);
 });
+
+test('the kind name check refuses rude names and leaves ordinary ones alone', async () => {
+  const { nameIsKind } = await import('../shared/rules.js');
+  assert.equal(nameIsKind('Ash'), true);
+  assert.equal(nameIsKind('Essex'), true);
+  assert.equal(nameIsKind('Grass'), true);
+  assert.equal(nameIsKind('Rosie'), true);
+  assert.equal(nameIsKind('Fuck'), false);
+  assert.equal(nameIsKind('sh1t'), false);
+  assert.equal(nameIsKind('xxFuckxx'), false);
+  assert.equal(nameIsKind('Nazi Bob'), false);
+});

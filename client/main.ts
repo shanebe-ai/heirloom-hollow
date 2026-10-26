@@ -2,7 +2,7 @@
 // visitors, and sleep in the farmhouse. Milestone 1: a farm that grows.
 import Phaser from 'phaser';
 import { T, COLS, ROWS, layout, drawGround, drawHouse, drawTree, drawFence, drawSign, drawSoil, drawCrop, drawDeadPlant, drawShippingBox, Farm } from './world';
-import { G, loadGame, saveGame, startAutosave, tileAt, tileKey, sleepNight, markStep, guideActive, farmerKey, GAME_MIN_PER_MS, clockLabel } from './state';
+import { G, loadGame, saveGame, startAutosave, tileAt, tileKey, sleepNight, markStep, guideActive, farmerKey, farmerPack, GAME_MIN_PER_MS, clockLabel } from './state';
 import { initUI, refreshHud, openShop, openShip, openStall, showSummary, toast, fade, anyPanelOpen, closePanels } from './ui';
 import { SEASONS, DAY_END, ENERGY_COSTS, TIRED_BELOW, CROPS, ITEMS, cropStage, isRipe, harvestTile, CAN_CAPACITY } from '../shared/rules.js';
 import { House } from './house';
@@ -75,11 +75,13 @@ class Boot extends Phaser.Scene {
     sheet('rowan');
     sheet('ivy');
     sheet('reed');
+    sheet('pack');
+    sheet('purse');
     for (const v of VISITORS) sheet(v.key);
     this.load.spritesheet('bramble', 'assets/sprites/bramble.png', { frameWidth: 32, frameHeight: 32 });
   }
   create() {
-    for (const key of ['rosie', 'rowan', 'ivy', 'reed', ...VISITORS.map((v) => v.key)])
+    for (const key of ['rosie', 'rowan', 'ivy', 'reed', 'pack', 'purse', ...VISITORS.map((v) => v.key)])
       DIRS.forEach((d, row) => this.anims.create({
         key: `${key}-${d}`, frameRate: 8, repeat: -1,
         frames: this.anims.generateFrameNumbers(key, { start: row * 4, end: row * 4 + 3 }),
@@ -93,6 +95,8 @@ class Boot extends Phaser.Scene {
 class Farmyard extends Phaser.Scene {
   farm!: Farm;
   player!: Phaser.GameObjects.Sprite;
+  playerPack?: Phaser.GameObjects.Sprite;
+  packKey = '';
   playerPath: { x: number; y: number }[] = [];
   playerDir: Dir = 'down';
   people: Person[] = [];
@@ -168,6 +172,10 @@ class Farmyard extends Phaser.Scene {
 
     const start = G.save.player.scene === 'farm' ? G.save.player : f.start;
     this.player = this.add.sprite(start.x * T + 16, start.y * T + 28, farmerKey(), 1).setOrigin(0.5, 1);
+    this.packKey = farmerPack();
+    this.playerPack = this.packKey
+      ? this.add.sprite(start.x * T + 16, start.y * T + 28, this.packKey, 1).setOrigin(0.5, 1)
+      : undefined;
     for (const v of VISITORS) {
       const s = this.add.sprite(v.at.x * T + 16, v.at.y * T + 28, v.key, 1).setOrigin(0.5, 1);
       s.setInteractive({ useHandCursor: true, pixelPerfect: false });
@@ -445,11 +453,26 @@ class Farmyard extends Phaser.Scene {
     s.setFrame(DIRS.indexOf(d) * 4 + 1);
   }
 
+  /** The farmer's bag rides exactly where the farmer rides. */
+  syncPack(walking: boolean) {
+    if (!this.playerPack || !this.packKey) return;
+    const p = this.playerPack;
+    p.setPosition(this.player.x, this.player.y);
+    p.setDisplayOrigin(16, this.player.displayOriginY);
+    if (walking) {
+      const key = `${this.packKey}-${this.playerDir}`;
+      if (p.anims.currentAnim?.key !== key || !p.anims.isPlaying) p.play(key);
+    } else {
+      p.stop();
+      p.setFrame(DIRS.indexOf(this.playerDir) * 4 + 1);
+    }
+  }
+
   update(time: number, delta: number) {
     const dt = delta / 1000;
     this.tickClock(delta);
     if (this.busy) return;
-    if (this.talking || document.activeElement?.id === 'said' || anyPanelOpen()) { this.depthSort(); return; }
+    if (this.talking || document.activeElement?.id === 'said' || anyPanelOpen()) { this.depthSort(); this.syncPack(false); return; }
 
     // Keyboard on a computer: walk one tile at a time in the pressed direction.
     const k = this.keys;
@@ -472,6 +495,7 @@ class Farmyard extends Phaser.Scene {
     }
     // A little bob in her step.
     this.player.setDisplayOrigin(16, walking ? 48 + Math.abs(Math.sin(time / 90)) : 48);
+    this.syncPack(walking);
 
     // Keep the save knowing where the farmer stands, and notice the farmhouse door.
     const here = this.tileOf(this.player);
@@ -499,6 +523,7 @@ class Farmyard extends Phaser.Scene {
 
   depthSort() {
     this.player.setDepth(this.player.y + (this.tileOf(this.player).y >= 5 && this.tileOf(this.player).x === this.farm.house.door.x ? 40 : 0));
+    if (this.playerPack) this.playerPack.setDepth(this.player.depth + 1);
     for (const p of this.people) p.sprite.setDepth(p.sprite.y);
     this.bramble.setDepth(this.bramble.y);
   }

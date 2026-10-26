@@ -153,6 +153,22 @@ export const FARMER_LOOKS = [
   { key: 'reed', name: 'Reed', gender: 'boy' },
 ];
 
+/** A kind check for farmer names, run when a player moves in and again on
+ *  the server as a backstop. It is a speed bump, not a tribunal: whole
+ *  words are matched so a name like Essex or Grass sails through, and the
+ *  strongest few words are caught even when they are hidden inside one. */
+const UNKIND_WORDS = ['fuck', 'shit', 'bitch', 'bastard', 'whore', 'slut', 'cunt', 'dick', 'cock', 'pussy', 'porn', 'nigger', 'nigga', 'faggot', 'retard', 'nazi', 'hitler'];
+const UNKIND_ANYWHERE = ['fuck', 'cunt', 'nigger', 'nigga', 'faggot'];
+
+export function nameIsKind(name) {
+  const leet = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '@': 'a', '$': 's' };
+  const cleaned = String(name).toLowerCase().split('').map((c) => leet[c] || c).join('');
+  const words = cleaned.split(/[^a-z]+/).filter(Boolean);
+  if (words.some((w) => UNKIND_WORDS.includes(w))) return false;
+  const joined = words.join('');
+  return !UNKIND_ANYWHERE.some((w) => joined.includes(w));
+}
+
 /** Marigold's flower stall. Every price sits above what the shipping box
  *  pays for the same flower, so a bought flower is for giving or keeping,
  *  never for printing coins. Growing your own stays the profitable way. */

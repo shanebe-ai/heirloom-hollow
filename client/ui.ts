@@ -2,7 +2,7 @@
 // It reads and writes the one game state in state.ts and never runs game
 // rules of its own beyond buying seeds and moving produce into the box.
 import { G, farmId, useFarmId, saveGame, blockSaves, markStep, guideActive, setFarmPassword, unlockFarm } from './state';
-import { ITEMS, CROPS, TIRED_BELOW, GUIDE_STEP_IDS, FARMER_LOOKS, FLOWER_STALL } from '../shared/rules.js';
+import { ITEMS, CROPS, TIRED_BELOW, GUIDE_STEP_IDS, FARMER_LOOKS, FLOWER_STALL, nameIsKind } from '../shared/rules.js';
 import { drawToolIcon } from './world';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -77,6 +77,12 @@ function pickLook(key: string) {
   for (const l of FARMER_LOOKS) $(`pick-${l.key}`).classList.toggle('sel', l.key === look.key);
   const name = $('setupName') as HTMLInputElement;
   if (!name.value || FARMER_LOOKS.some((l) => l.name === name.value)) name.value = look.name;
+}
+
+let setupAcc = 'none';
+function pickAcc(acc: string) {
+  setupAcc = acc;
+  for (const a of ['backpack', 'purse', 'none']) $(`pick-acc-${a}`).classList.toggle('sel', a === acc);
 }
 
 /** The first panels a player meets, in order: a locked farm asks for its
@@ -354,6 +360,7 @@ export function initUI() {
   });
   $('letterBtn').addEventListener('click', openLetter);
   for (const l of FARMER_LOOKS) $(`pick-${l.key}`).addEventListener('click', () => pickLook(l.key));
+  for (const a of ['backpack', 'purse', 'none']) $(`pick-acc-${a}`).addEventListener('click', () => pickAcc(a));
   $('stallChat').addEventListener('click', () => {
     closePanels();
     document.dispatchEvent(new CustomEvent('hh-chat', { detail: 'marigold' }));
@@ -361,11 +368,12 @@ export function initUI() {
   $('setupGo').addEventListener('click', async () => {
     const name = ($('setupName') as HTMLInputElement).value.trim();
     if (!name) { toast('Your farmer needs a name.'); return; }
+    if (!nameIsKind(name)) { toast('That name will not do here. Pick another one.'); return; }
     const pw = ($('setupPw') as HTMLInputElement).value;
     const pw2 = ($('setupPw2') as HTMLInputElement).value;
     if (pw.length < 4) { toast('The password needs at least 4 characters.'); return; }
     if (pw !== pw2) { toast('The passwords do not match. Type them again.'); return; }
-    G.save.profile = { name, gender: setupLook.gender, look: setupLook.key };
+    G.save.profile = { name, gender: setupLook.gender, look: setupLook.key, accessory: setupAcc };
     const kept = await setFarmPassword(pw);
     if (!kept) toast('The password could not be kept just now. Your farm code still opens the farm.');
     await saveGame();

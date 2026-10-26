@@ -100,6 +100,8 @@
     .pick .face.rowan { background-image: url('assets/sprites/rowan_walk.png'); }
     .pick .face.ivy { background-image: url('assets/sprites/ivy_walk.png'); }
     .pick .face.reed { background-image: url('assets/sprites/reed_walk.png'); }
+    .pick .face.pack { background-image: url('assets/sprites/pack_walk.png'); }
+    .pick .face.purse { background-image: url('assets/sprites/purse_walk.png'); }
     .panel .x { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%;
       border: 3px solid var(--ink); background: var(--paper); color: var(--ink); font: 600 18px/1 'Pixelify Sans', monospace; }
     .row { display: flex; align-items: center; gap: 8px; padding: 7px 2px; border-bottom: 2px dashed #c98f5f; font-size: 17px; }
@@ -225,6 +227,12 @@
       <button type="button" class="pick" id="pick-rowan"><span class="face rowan"></span>Rowan</button>
       <button type="button" class="pick" id="pick-ivy"><span class="face ivy"></span>Ivy</button>
       <button type="button" class="pick" id="pick-reed"><span class="face reed"></span>Reed</button>
+    </div>
+    <label class="flabel">And what will you carry?</label>
+    <div class="pickrow">
+      <button type="button" class="pick" id="pick-acc-backpack"><span class="face pack"></span>Backpack</button>
+      <button type="button" class="pick" id="pick-acc-purse"><span class="face purse"></span>Purse</button>
+      <button type="button" class="pick sel" id="pick-acc-none"><span class="face"></span>No bag</button>
     </div>
     <label class="flabel" for="setupPw">Choose a password</label>
     <input class="tin" id="setupPw" type="password" maxlength="64" autocomplete="new-password">

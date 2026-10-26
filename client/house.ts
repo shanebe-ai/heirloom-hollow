@@ -3,7 +3,7 @@
 // with the farmer waking in bed, a little poorer.
 import Phaser from 'phaser';
 import { T, INTERIOR, drawInterior } from './world';
-import { G, saveGame, sleepNight, farmerKey, GAME_MIN_PER_MS, clockLabel } from './state';
+import { G, saveGame, sleepNight, farmerKey, farmerPack, GAME_MIN_PER_MS, clockLabel } from './state';
 import { askSleep, showSummary, fade, anyPanelOpen, refreshHud } from './ui';
 import { DAY_END } from '../shared/rules.js';
 
@@ -16,6 +16,8 @@ const inRect = (x: number, y: number, r: { x: number; y: number; w: number; h: n
 
 export class House extends Phaser.Scene {
   player!: Phaser.GameObjects.Sprite;
+  playerPack?: Phaser.GameObjects.Sprite;
+  packKey = '';
   playerPath: { x: number; y: number }[] = [];
   playerDir: Dir = 'up';
   keys!: Record<string, Phaser.Input.Keyboard.Key>;
@@ -45,6 +47,10 @@ export class House extends Phaser.Scene {
 
     const p = G.save.player.scene === 'house' ? G.save.player : INTERIOR.enter;
     this.player = this.add.sprite(p.x * T + 16, p.y * T + 28, farmerKey(), 1).setOrigin(0.5, 1);
+    this.packKey = farmerPack();
+    this.playerPack = this.packKey
+      ? this.add.sprite(p.x * T + 16, p.y * T + 28, this.packKey, 1).setOrigin(0.5, 1)
+      : undefined;
     this.stand(this.player, 'up');
 
     const cam = this.cameras.main;
@@ -175,6 +181,18 @@ export class House extends Phaser.Scene {
       if (this.pendingBed) this.arrivedBed();
     }
     this.player.setDepth(this.player.y);
+    if (this.playerPack && this.packKey) {
+      const pack = this.playerPack;
+      pack.setPosition(this.player.x, this.player.y);
+      pack.setDepth(this.player.depth + 1);
+      if (walking) {
+        const key = `${this.packKey}-${this.playerDir}`;
+        if (pack.anims.currentAnim?.key !== key || !pack.anims.isPlaying) pack.play(key);
+      } else {
+        pack.stop();
+        pack.setFrame(DIRS.indexOf(this.playerDir) * 4 + 1);
+      }
+    }
 
     const here = this.tileOf(this.player);
     if (here.x !== this.lastTile.x || here.y !== this.lastTile.y) {

@@ -110,3 +110,15 @@ test('a known farmer look rides along, an invented one is dropped', () => {
   const odd = validateSave({ ...newSave(), profile: { name: 'Ivy', gender: 'girl', look: 'dragon' } });
   assert.deepEqual(odd.profile, { name: 'Ivy', gender: 'girl' });
 });
+
+test('an unkind farmer name drops the whole profile at the server door', () => {
+  assert.equal(validateSave({ ...newSave(), profile: { name: 'Fuck', gender: 'boy' } }).profile, undefined);
+  assert.equal(validateSave({ ...newSave(), profile: { name: 'sh1t', gender: 'girl' } }).profile, undefined);
+});
+
+test('a chosen accessory rides along, an invented one is dropped', () => {
+  const clean = validateSave({ ...newSave(), profile: { name: 'Ash', gender: 'boy', accessory: 'backpack' } });
+  assert.equal(clean.profile.accessory, 'backpack');
+  const odd = validateSave({ ...newSave(), profile: { name: 'Ash', gender: 'boy', accessory: 'jetpack' } });
+  assert.equal(odd.profile.accessory, undefined);
+});
