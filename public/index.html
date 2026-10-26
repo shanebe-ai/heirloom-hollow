@@ -8,12 +8,12 @@
   <title>Heirloom Hollow</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
   <style>
     :root { --ink: #4a2826; --paper: #fff6e6; --edge: #c98f5f; }
     html, body { margin: 0; height: 100%; background: #7dbb5e; overflow: hidden; touch-action: none;
       -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
-    body { font-family: 'Pixelify Sans', ui-monospace, monospace; color: var(--ink); }
+    body { font-family: 'Nunito', system-ui, sans-serif; color: var(--ink); }
     #game { position: fixed; inset: 0; }
     canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
     #hud { position: fixed; top: max(10px, env(safe-area-inset-top)); left: 10px; right: 10px;
@@ -21,7 +21,7 @@
     .col { display: flex; flex-direction: column; gap: 6px; }
     .col.right { align-items: flex-end; }
     .chip { background: var(--paper); border: 3px solid var(--ink); border-radius: 10px; padding: 4px 10px;
-      font-size: 17px; box-shadow: 0 3px 0 var(--edge); width: max-content; }
+      font-size: 17px; font-weight: 700; box-shadow: 0 3px 0 var(--edge); width: max-content; }
     #energyBar { width: 108px; height: 14px; background: var(--paper); border: 3px solid var(--ink);
       border-radius: 8px; box-shadow: 0 3px 0 var(--edge); overflow: hidden; }
     #energyFill { height: 100%; width: 100%; background: #7dbb5e; transition: width .3s; }
@@ -30,20 +30,33 @@
     .hudbtn { font: 600 15px 'Pixelify Sans', monospace; color: var(--ink); background: var(--paper);
       border: 3px solid var(--ink); border-radius: 10px; padding: 4px 10px; box-shadow: 0 3px 0 var(--edge); }
     .hudbtn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--edge); }
-    #tired { position: fixed; top: 118px; width: 100%; text-align: center; font-size: 16px; color: #fff6e6;
+    #tired { position: fixed; top: 118px; width: 100%; text-align: center; font-size: 16px; font-weight: 700; color: #fff6e6;
       text-shadow: 0 2px 0 #4a2826; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .5s; }
-    #toast { position: fixed; bottom: 96px; width: 100%; text-align: center; font-size: 16px; color: #fff6e6;
+    #toast { position: fixed; bottom: 96px; width: 100%; text-align: center; font-size: 16px; font-weight: 700; color: #fff6e6;
       text-shadow: 0 2px 0 #4a2826; pointer-events: none; z-index: 9; opacity: 0; transition: opacity .3s; }
+    #stepsCard { position: fixed; top: 150px; left: 10px; width: 252px; z-index: 5; display: none;
+      background: var(--paper); border: 3px solid var(--ink); border-radius: 12px; padding: 8px 12px 10px;
+      box-shadow: 0 3px 0 var(--edge); pointer-events: none; }
+    #stepsCard.on { display: block; }
+    #stepsCard .stepsTitle { font-family: 'Pixelify Sans', monospace; font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+    #stepsCard .step { font-size: 14.5px; line-height: 1.35; padding: 1px 0; }
+    #stepsCard .step.done { opacity: .55; text-decoration: line-through; }
+    #stepsCard .step.now { font-weight: 700; }
+    #stepsHide { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%;
+      border: 2px solid var(--ink); background: var(--paper); color: var(--ink); font: 700 14px/1 'Nunito', sans-serif;
+      pointer-events: auto; }
     #tools { position: fixed; left: 0; right: 0; bottom: max(10px, env(safe-area-inset-bottom));
       display: flex; justify-content: center; gap: 8px; z-index: 5; }
     body.indoors #tools { display: none; }
+    body.indoors #stepsCard, body.indoors #hint { display: none; }
     .tool { width: 66px; height: 62px; background: var(--paper); border: 3px solid var(--ink); border-radius: 12px;
       box-shadow: 0 3px 0 var(--edge); display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 1px; font: 600 12px 'Pixelify Sans', monospace; color: var(--ink); padding: 2px; position: relative; }
     .tool img { width: 30px; height: 30px; image-rendering: pixelated; }
     .tool.sel { background: #ffe1a8; transform: translateY(-5px); box-shadow: 0 6px 0 var(--edge); }
     .tool .n { position: absolute; top: -7px; right: -5px; background: #c9705a; color: var(--paper);
-      border: 2px solid var(--ink); border-radius: 999px; font-size: 12px; padding: 0 5px; }
+      border: 2px solid var(--ink); border-radius: 999px; font-size: 12px; font-family: 'Nunito', sans-serif;
+      font-weight: 700; padding: 0 5px; }
     #talk { position: fixed; left: 10px; right: 10px; bottom: max(12px, env(safe-area-inset-bottom));
       max-width: 620px; margin: 0 auto; display: none; gap: 10px; align-items: stretch; z-index: 6;
       background: var(--paper); border: 4px solid var(--ink); border-radius: 14px; padding: 10px;
@@ -51,7 +64,7 @@
     #talk.open { display: flex; }
     #talk img { width: 96px; height: 96px; image-rendering: pixelated; flex: none;
       background: #f7dcc0; border: 3px solid var(--ink); border-radius: 10px; }
-    #talk .who { font-weight: 600; font-size: 19px; margin-bottom: 4px; }
+    #talk .who { font-family: 'Pixelify Sans', monospace; font-weight: 600; font-size: 19px; margin-bottom: 4px; }
     #talk .line { font-size: 18px; line-height: 1.3; }
     #talk .text { flex: 1; min-width: 0; }
     #talk .line { min-height: 46px; }
@@ -60,7 +73,7 @@
       border: 3px solid var(--ink); background: var(--paper); color: var(--ink); font: 600 20px/1 'Pixelify Sans', monospace;
       box-shadow: 0 3px 0 var(--edge); }
     #say { display: flex; gap: 6px; margin-top: 8px; }
-    #say input { flex: 1; min-width: 0; font: 17px 'Pixelify Sans', monospace; color: var(--ink); background: #fff;
+    #say input { flex: 1; min-width: 0; font: 17px 'Nunito', sans-serif; color: var(--ink); background: #fff;
       border: 3px solid var(--ink); border-radius: 8px; padding: 6px 8px; }
     #say button { font: 600 17px 'Pixelify Sans', monospace; color: var(--paper); background: #c9705a;
       border: 3px solid var(--ink); border-radius: 8px; padding: 0 12px; }
@@ -69,14 +82,16 @@
       display: none; z-index: 7; background: var(--paper); border: 4px solid var(--ink); border-radius: 14px;
       padding: 12px; box-shadow: 0 5px 0 var(--edge); max-height: 58vh; overflow-y: auto; }
     .panel.open { display: block; }
-    .panel h2 { margin: 0 0 8px; font-size: 20px; }
-    .panel .note { font-size: 15px; opacity: .8; margin: 8px 0 0; line-height: 1.35; }
+    .panel h2 { margin: 0 0 8px; font-size: 20px; font-family: 'Pixelify Sans', monospace; }
+    .panel .note { font-size: 16px; opacity: .8; margin: 8px 0 0; line-height: 1.35; }
+    .panel .balance { font-size: 17px; font-weight: 700; margin: 0 0 8px; }
+    #letterPanel .note { font-size: 17px; opacity: 1; }
     .panel .x { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%;
       border: 3px solid var(--ink); background: var(--paper); color: var(--ink); font: 600 18px/1 'Pixelify Sans', monospace; }
     .row { display: flex; align-items: center; gap: 8px; padding: 7px 2px; border-bottom: 2px dashed #c98f5f; font-size: 17px; }
     .row:last-child { border-bottom: none; }
     .row .grow { flex: 1; }
-    .row .sub { font-size: 14px; opacity: .75; }
+    .row .sub { font-size: 15px; opacity: .75; }
     .pbtn { font: 600 15px 'Pixelify Sans', monospace; color: var(--paper); background: #c9705a;
       border: 3px solid var(--ink); border-radius: 8px; padding: 5px 10px; }
     .pbtn.soft { background: #7fae7a; }
@@ -86,14 +101,14 @@
     #seedPop { bottom: 88px; }
     #sleepPanel, #summaryPanel { z-index: 8; }
     #summaryLines { font-size: 17px; line-height: 1.45; }
-    #farmCode { font-size: 13.5px; word-break: break-all; background: #fff; border: 2px dashed #c98f5f;
+    #farmCode { font-size: 15px; font-weight: 700; word-break: break-all; background: #fff; border: 2px dashed #c98f5f;
       border-radius: 8px; padding: 6px 8px; margin: 6px 0; user-select: text; -webkit-user-select: text; }
-    #farmCodeInput { width: 100%; box-sizing: border-box; font: 15px 'Pixelify Sans', monospace; color: var(--ink);
+    #farmCodeInput { width: 100%; box-sizing: border-box; font: 15px 'Nunito', sans-serif; color: var(--ink);
       background: #fff; border: 3px solid var(--ink); border-radius: 8px; padding: 7px 8px; margin: 6px 0; }
     #fade { position: fixed; inset: 0; background: #14100e; opacity: 0; pointer-events: none; transition: opacity .6s; z-index: 20; }
     #fade.on { opacity: 1; }
     #hint { position: fixed; bottom: 84px; width: 100%; text-align: center;
-      font-size: 16px; color: #fff6e6; text-shadow: 0 2px 0 #4a2826; pointer-events: none; z-index: 4;
+      font-size: 16px; font-weight: 700; color: #fff6e6; text-shadow: 0 2px 0 #4a2826; pointer-events: none; z-index: 4;
       transition: opacity 1s; }
   </style>
 </head>
@@ -112,6 +127,11 @@
         <button class="hudbtn" id="gearBtn">Farm</button>
       </div>
     </div>
+  </div>
+  <div id="stepsCard">
+    <button id="stepsHide" aria-label="Hide the first steps">×</button>
+    <div class="stepsTitle">First steps</div>
+    <div id="stepsList"></div>
   </div>
   <div id="tired">You're getting tired.</div>
   <div id="toast"></div>
@@ -136,18 +156,21 @@
   <div class="panel" id="bagPanel">
     <button class="x" data-close aria-label="Close">×</button>
     <h2>Your bag</h2>
+    <p class="balance">Your coins: <span id="bagCoins">500</span></p>
     <div id="bagList"></div>
     <p class="note">Produce earns its keep in the wooden shipping box by the farmhouse. Seeds plant from the toolbar.</p>
   </div>
   <div class="panel" id="shopPanel">
     <button class="x" data-close aria-label="Close">×</button>
     <h2>The seed sack</h2>
+    <p class="balance">Your coins: <span id="shopCoins">500</span></p>
     <div id="shopList"></div>
-    <p class="note">The sack hangs by the signpost until Pip and Poppy open their shop. You have <span id="shopCoins">500</span> coins.</p>
+    <p class="note">The sack hangs by the signpost until Pip and Poppy open their shop.</p>
   </div>
   <div class="panel" id="shipPanel">
     <button class="x" data-close aria-label="Close">×</button>
     <h2>Shipping box</h2>
+    <p class="balance">Your coins: <span id="shipCoins">500</span></p>
     <div id="shipList"></div>
     <p class="note">Anything in the box ships tonight, and you are paid in the morning.</p>
   </div>
@@ -169,6 +192,15 @@
     <div id="summaryLines"></div>
     <div class="bigrow"><button class="pbtn soft" id="summaryOk">Start the day</button></div>
   </div>
+  <div class="panel" id="letterPanel">
+    <h2>A letter from Grandma Hazel</h2>
+    <p class="note">Dear Rosie,</p>
+    <p class="note">The farm is yours now, and it will teach you as you go. Start at the signpost by the gate: the sack hanging there sells seeds. Hoe a patch of grass inside the fence, plant your seeds, and water them every day. When your can runs dry, the pond fills it again.</p>
+    <p class="note">Sleep in the farmhouse bed when the day is done. Crops grow while you rest. When a crop is ripe and full, pick it with your hand and put it in the wooden box by the house. It ships in the night and the coins are yours by morning.</p>
+    <p class="note">Be kind to the neighbours who stop by. They were fond of this place long before us.</p>
+    <p class="note">All my love, Grandma Hazel</p>
+    <div class="bigrow"><button class="pbtn soft" id="letterOk">Start farming</button></div>
+  </div>
   <div class="panel" id="settingsPanel">
     <button class="x" data-close aria-label="Close">×</button>
     <h2>Your farm</h2>
@@ -176,6 +208,7 @@
     <div id="farmCode"></div>
     <input id="farmCodeInput" placeholder="Paste a farm code here" autocomplete="off">
     <div class="bigrow"><button class="pbtn soft" id="useCode">Use this code</button></div>
+    <div class="bigrow"><button class="pbtn" id="letterBtn">Read Hazel's letter</button></div>
     <p class="note">Switching codes loads that farm and leaves this one saved as it is.</p>
   </div>
   <div id="fade"></div>

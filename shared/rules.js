@@ -137,3 +137,7 @@ export function advanceNight(save) {
 
   return { lines, payout, seasonChanged };
 }
+
+/** The first steps guide, in the order a new farmer meets them. The client
+ * keeps the friendly words for each step; the server only checks the ids. */
+export const GUIDE_STEP_IDS = ['buy', 'hoe', 'plant', 'water', 'sleep', 'harvest', 'ship'];

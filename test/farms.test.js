@@ -73,3 +73,21 @@ test('the store overwrites on the next save', async () => {
   await store.store(ID, save);
   assert.equal((await store.load(ID)).coins, 42);
 });
+
+test('a well formed guide rides along with the save', () => {
+  const clean = validateSave({ ...newSave(), guide: { seen: true, off: false, done: ['buy', 'hoe'] } });
+  assert.ok(clean);
+  assert.deepEqual(clean.guide, { seen: true, off: false, done: ['buy', 'hoe'] });
+});
+
+test('guide step ids are filtered to the ones the game knows', () => {
+  const clean = validateSave({ ...newSave(), guide: { seen: 'yes', done: ['buy', 'teleport', 'buy', 'ship'] } });
+  assert.ok(clean);
+  assert.deepEqual(clean.guide, { seen: false, off: false, done: ['buy', 'ship'] });
+});
+
+test('a malformed guide is dropped, not fatal to the save', () => {
+  const clean = validateSave({ ...newSave(), guide: 'skip it' });
+  assert.ok(clean);
+  assert.equal(clean.guide, undefined);
+});

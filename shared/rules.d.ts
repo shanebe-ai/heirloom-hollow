@@ -22,6 +22,7 @@ export interface Save {
   tiles: Record<string, Tile>;
   player: { x: number; y: number; scene: 'farm' | 'house' };
   chatMemory?: Record<string, { from: string; text: string }[]>;
+  guide?: { seen: boolean; off: boolean; done: string[] };
 }
 
 export interface CropDef {
@@ -53,6 +54,7 @@ export declare const CAN_CAPACITY: number;
 export declare const START_COINS: number;
 export declare const PASS_OUT_CAP: number;
 export declare const ENERGY_COSTS: Record<'hoe' | 'water' | 'plant' | 'harvest', number>;
+export declare const GUIDE_STEP_IDS: string[];
 export declare const CROPS: Record<string, CropDef>;
 export declare const ITEMS: Record<string, ItemDef>;
 

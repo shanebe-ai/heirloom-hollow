@@ -1,12 +1,68 @@
 // The HTML layer over the canvas: the toolbar, the HUD chips and every panel.
 // It reads and writes the one game state in state.ts and never runs game
 // rules of its own beyond buying seeds and moving produce into the box.
-import { G, farmId, useFarmId, saveGame, blockSaves } from './state';
-import { ITEMS, CROPS, TIRED_BELOW } from '../shared/rules.js';
+import { G, farmId, useFarmId, saveGame, blockSaves, markStep, guideActive } from './state';
+import { ITEMS, CROPS, TIRED_BELOW, GUIDE_STEP_IDS } from '../shared/rules.js';
 import { drawToolIcon } from './world';
 
 const $ = (id: string) => document.getElementById(id)!;
-const PANELS = ['bagPanel', 'shopPanel', 'shipPanel', 'seedPop', 'sleepPanel', 'summaryPanel', 'settingsPanel'];
+const PANELS = ['bagPanel', 'shopPanel', 'shipPanel', 'seedPop', 'sleepPanel', 'summaryPanel', 'settingsPanel', 'letterPanel'];
+
+/** The first steps guide: the card words and the hint line for each step. */
+const GUIDE_WORDS: Record<string, { label: string; hint: string }> = {
+  buy: { label: 'Buy a seed from the sack by the signpost', hint: 'First steps: tap the signpost, then buy a seed from the sack.' },
+  hoe: { label: 'Hoe a patch of grass inside the fence', hint: 'First steps: pick the Hoe below and tap grass inside the fence.' },
+  plant: { label: 'Plant a seed on the tilled soil', hint: 'First steps: pick Seeds below and tap a patch of tilled soil.' },
+  water: { label: 'Water it (the pond fills your can)', hint: 'First steps: pick the Can and tap your planted seed. The pond refills it.' },
+  sleep: { label: 'Sleep in the farmhouse bed', hint: 'First steps: walk into the farmhouse and tap the bed to sleep.' },
+  harvest: { label: 'Pick a ripe crop with your hand', hint: 'First steps: a ripe crop looks big and full. Pick it with the Hand.' },
+  ship: { label: 'Ship it in the box by the house', hint: 'First steps: tap the wooden box by the farmhouse and ship your crop.' },
+};
+
+let guideSignature: string | null = null;
+let guideWasActive = false;
+/** Draw the first steps card and point the hint line at the current step. */
+export function refreshGuide() {
+  const g = G.save.guide;
+  const card = $('stepsCard');
+  if (!g || !guideActive()) {
+    card.classList.remove('on');
+    if (guideWasActive && g && !g.off) {
+      toast('That is the whole loop. The farm is yours now.');
+      $('hint').style.opacity = '0';
+    }
+    guideWasActive = false;
+    guideSignature = null;
+    return;
+  }
+  guideWasActive = true;
+  const signature = g.done.join(',');
+  if (signature !== guideSignature) {
+    guideSignature = signature;
+    const list = $('stepsList');
+    list.innerHTML = '';
+    let currentSet = false;
+    for (const id of GUIDE_STEP_IDS) {
+      const row = document.createElement('div');
+      const done = g.done.includes(id);
+      row.className = `step${done ? ' done' : !currentSet ? ' now' : ''}`;
+      if (!done && !currentSet) currentSet = true;
+      row.textContent = `${done ? '✓ ' : ''}${GUIDE_WORDS[id].label}`;
+      list.appendChild(row);
+    }
+  }
+  card.classList.add('on');
+  const next = GUIDE_STEP_IDS.find((id) => !g.done.includes(id))!;
+  const hint = $('hint');
+  hint.textContent = GUIDE_WORDS[next].hint;
+  hint.style.opacity = '1';
+}
+
+/** Hazel's letter greets any farmer who has not read it yet. */
+export function maybeShowLetter() {
+  const g = G.save.guide;
+  if (g && !g.seen && !g.off) openPanel('letterPanel');
+}
 
 export function closePanels() {
   for (const id of PANELS) $(id).classList.remove('open');
@@ -45,6 +101,7 @@ export function refreshHud() {
   document.querySelectorAll('.tool').forEach((b) => {
     b.classList.toggle('sel', (b as HTMLElement).dataset.tool === G.selectedTool);
   });
+  refreshGuide();
 }
 
 function ownedSeeds(): string[] {
@@ -89,6 +146,7 @@ function emptyLine(text: string): HTMLElement {
 export function openBag() {
   const list = $('bagList');
   list.innerHTML = '';
+  $('bagCoins').textContent = String(G.save.coins);
   const entries = Object.entries(G.save.inventory).filter(([, n]) => n > 0);
   if (!entries.length) list.appendChild(emptyLine('Nothing in here yet. The field is waiting.'));
   for (const [item, n] of entries) {
@@ -115,6 +173,7 @@ export function openShop() {
           if (G.save.coins < crop.seedCost) return;
           G.save.coins -= crop.seedCost;
           G.save.inventory[crop.seed] = (G.save.inventory[crop.seed] ?? 0) + 1;
+          markStep('buy');
           if (!ownedSeeds().includes(G.selectedSeed)) G.selectedSeed = crop.seed;
           openShop();
           refreshHud();
@@ -129,6 +188,7 @@ export function openShop() {
 export function openShip() {
   const list = $('shipList');
   list.innerHTML = '';
+  $('shipCoins').textContent = String(G.save.coins);
   const produce = Object.keys(ITEMS).filter((k) => ITEMS[k].sell);
   let any = false;
   for (const item of produce) {
@@ -169,6 +229,7 @@ function moveToBox(item: string, n: number) {
   const have = G.save.inventory[item] ?? 0;
   const put = Math.min(n, have);
   if (put <= 0) return;
+  markStep('ship');
   G.save.inventory[item] = have - put;
   if (!G.save.inventory[item]) delete G.save.inventory[item];
   G.save.shipping[item] = (G.save.shipping[item] ?? 0) + put;
@@ -229,6 +290,19 @@ export function initUI() {
     openPanel('settingsPanel');
   });
   document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', closePanels));
+  document.addEventListener('hh-guide', refreshGuide);
+  $('letterOk').addEventListener('click', () => {
+    if (G.save.guide) G.save.guide.seen = true;
+    closePanels();
+    refreshGuide();
+    void saveGame();
+  });
+  $('letterBtn').addEventListener('click', () => openPanel('letterPanel'));
+  $('stepsHide').addEventListener('click', () => {
+    if (G.save.guide) G.save.guide.off = true;
+    refreshGuide();
+    void saveGame();
+  });
   $('useCode').addEventListener('click', () => {
     const value = ($('farmCodeInput') as HTMLInputElement).value.trim();
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
@@ -240,4 +314,5 @@ export function initUI() {
     location.reload();
   });
   refreshHud();
+  maybeShowLetter();
 }

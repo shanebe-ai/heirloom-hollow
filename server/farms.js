@@ -5,7 +5,7 @@
 // over the old save, so a crash mid write cannot corrupt a farm.
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { CROPS, ITEMS } from '../shared/rules.js';
+import { CROPS, ITEMS, GUIDE_STEP_IDS } from '../shared/rules.js';
 
 const ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TILE_KEY_RE = /^(\d{1,2}),(\d{1,2})$/;
@@ -81,6 +81,15 @@ export function validateSave(body) {
     tiles,
     player: { x: Math.floor(p.x), y: Math.floor(p.y), scene: p.scene },
   };
+
+  // The first steps guide rides along when it is the right shape; unknown
+  // step ids are dropped rather than trusted.
+  if (body.guide && typeof body.guide === 'object' && !Array.isArray(body.guide)) {
+    const done = Array.isArray(body.guide.done)
+      ? [...new Set(body.guide.done.filter((d) => GUIDE_STEP_IDS.includes(d)))]
+      : [];
+    save.guide = { seen: body.guide.seen === true, off: body.guide.off === true, done };
+  }
 
   // Chat memory rides along when it is the right shape, capped like the client keeps it.
   if (body.chatMemory && typeof body.chatMemory === 'object' && !Array.isArray(body.chatMemory)) {

@@ -2,7 +2,7 @@
 // It loads from the server under the player's farm code, saves itself back
 // every couple of minutes and whenever the player sleeps, and knows how a
 // night passes. Game code decides everything here; the AI never touches it.
-import { Save, Tile, newSave, advanceNight, passOutPenalty, DAY_START, MAX_ENERGY, SEASONS } from '../shared/rules.js';
+import { Save, Tile, newSave, advanceNight, passOutPenalty, DAY_START, MAX_ENERGY, SEASONS, ITEMS, GUIDE_STEP_IDS } from '../shared/rules.js';
 
 /** A day lasts 12 real minutes: 6am to 2am is 20 game hours. */
 export const GAME_MIN_PER_MS = (20 * 60) / (12 * 60 * 1000);
@@ -73,6 +73,7 @@ export async function loadGame(): Promise<void> {
       if (old) G.save.chatMemory = JSON.parse(old);
     } catch { /* nothing to carry over */ }
   }
+  ensureGuide();
   G.loaded = true;
 }
 
@@ -107,6 +108,48 @@ export function startAutosave() {
   });
 }
 
+/** Steps an older farm has plainly already done, judged from the save
+ * itself, so the guide only teaches what is genuinely left to learn. */
+function inferDone(s: Save): string[] {
+  const tiles = Object.values(s.tiles);
+  const anyCrop = tiles.some((t) => t.crop);
+  const tilled = tiles.filter((t) => t.tilled).length;
+  const done = new Set<string>();
+  if ((s.inventory['seed_turnip'] ?? 0) > 10
+    || ['seed_strawberry', 'seed_potato', 'seed_tulip'].some((k) => (s.inventory[k] ?? 0) > 0)) done.add('buy');
+  if (anyCrop || tilled > 5) done.add('hoe');
+  if (anyCrop) done.add('plant');
+  if (tiles.some((t) => t.watered) || s.can < 20) done.add('water');
+  if (!(s.day === 1 && s.season === 0 && s.year === 1)) done.add('sleep');
+  const hasProduce = Object.keys(s.inventory).some((k) => (ITEMS[k]?.sell ?? 0) > 0)
+    || Object.keys(s.shipping).length > 0;
+  if (hasProduce) done.add('harvest');
+  if (Object.keys(s.shipping).length > 0) done.add('ship');
+  return GUIDE_STEP_IDS.filter((id) => done.has(id));
+}
+
+/** Give the save a guide record if it predates one, filling in whatever the
+ * farm has already plainly done. */
+export function ensureGuide() {
+  if (!G.save.guide) G.save.guide = { seen: false, off: false, done: inferDone(G.save) };
+}
+
+/** Tick off one first step. The UI listens for the event and redraws. */
+export function markStep(id: string) {
+  ensureGuide();
+  const g = G.save.guide!;
+  if (g.off || g.done.includes(id)) return;
+  g.done.push(id);
+  document.dispatchEvent(new CustomEvent('hh-guide'));
+  void saveGame();
+}
+
+/** True while the guide still has something to teach this player. */
+export function guideActive(): boolean {
+  const g = G.save.guide;
+  return !!g && !g.off && GUIDE_STEP_IDS.some((id) => !g.done.includes(id));
+}
+
 /**
  * Night passes: the day rolls on, crops grow, the shipping box pays out and
  * the farmer wakes at 6am with full energy. Passing out first costs 10 percent
@@ -130,6 +173,7 @@ export function sleepNight(passedOut: boolean): { title: string; lines: string[]
   const title = `${seasons[s.season]} ${s.day}, Year ${s.year}`;
   if (!lines.length) lines.push('A quiet night. The farm is glad of the rest.');
   G.pendingSummary = { title, lines };
+  markStep('sleep');
   void saveGame();
   return G.pendingSummary;
 }

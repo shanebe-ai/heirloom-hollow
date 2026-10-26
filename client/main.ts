@@ -2,7 +2,7 @@
 // visitors, and sleep in the farmhouse. Milestone 1: a farm that grows.
 import Phaser from 'phaser';
 import { T, COLS, ROWS, layout, drawGround, drawHouse, drawTree, drawFence, drawSign, drawSoil, drawCrop, drawDeadPlant, drawShippingBox, Farm } from './world';
-import { G, loadGame, saveGame, startAutosave, tileAt, tileKey, sleepNight, GAME_MIN_PER_MS, clockLabel } from './state';
+import { G, loadGame, saveGame, startAutosave, tileAt, tileKey, sleepNight, markStep, guideActive, GAME_MIN_PER_MS, clockLabel } from './state';
 import { initUI, refreshHud, openShop, openShip, showSummary, toast, fade, anyPanelOpen, closePanels } from './ui';
 import { SEASONS, DAY_END, ENERGY_COSTS, TIRED_BELOW, CROPS, ITEMS, cropStage, isRipe, harvestTile, CAN_CAPACITY } from '../shared/rules.js';
 import { House } from './house';
@@ -211,7 +211,7 @@ class Farmyard extends Phaser.Scene {
       });
     }
     farmScene = this;
-    setTimeout(() => { document.getElementById('hint')!.style.opacity = '0'; }, 6000);
+    if (!guideActive()) setTimeout(() => { document.getElementById('hint')!.style.opacity = '0'; }, 6000);
     refreshHud();
     if (G.pendingSummary) {
       const summary = G.pendingSummary;
@@ -262,16 +262,19 @@ class Farmyard extends Phaser.Scene {
     this.stand(this.player, face);
     if (s.energy <= 0) { toast('You are out of energy. A good sleep will bring it back.'); return; }
     let worked = false;
+    let step: string | null = null;
     if (G.selectedTool === 'hoe') {
       if (tile?.dead) {
         delete tile.crop; delete tile.age; delete tile.dead;
         tile.tilled = true;
         s.energy -= ENERGY_COSTS.hoe;
         worked = true;
+        step = 'hoe';
       } else if (this.toolApplies(x, y)) {
         tileAt(x, y).tilled = true;
         s.energy -= ENERGY_COSTS.hoe;
         worked = true;
+        step = 'hoe';
       }
     } else if (G.selectedTool === 'can') {
       if (this.farm.ground[y]?.[x] === 'water') {
@@ -282,6 +285,7 @@ class Farmyard extends Phaser.Scene {
         s.can -= 1;
         s.energy -= ENERGY_COSTS.water;
         worked = true;
+        step = 'water';
       }
     } else if (G.selectedTool === 'seeds') {
       const item = G.selectedSeed;
@@ -294,15 +298,18 @@ class Farmyard extends Phaser.Scene {
         tile.age = 0;
         tile.watered = false;
         worked = true;
+        step = 'plant';
       }
     } else if (G.selectedTool === 'hand') {
       const gained = harvestTile(s, key);
       if (gained) {
         toast(`Picked a ${ITEMS[gained].name.toLowerCase()}.`);
         worked = true;
+        step = 'harvest';
       }
     }
     if (worked) {
+      if (step) markStep(step);
       s.energy = Math.max(0, s.energy);
       this.tweens.add({ targets: this.player, y: this.player.y - 4, duration: 110, yoyo: true, ease: 'Quad.easeOut' });
       this.refreshTiles();
