@@ -82,6 +82,15 @@ export function validateSave(body) {
     player: { x: Math.floor(p.x), y: Math.floor(p.y), scene: p.scene },
   };
 
+  // The farmer's name and who they play as ride along when they are the
+  // right shape. Names are short, plain, and safe to show anywhere.
+  if (body.profile && typeof body.profile === 'object' && !Array.isArray(body.profile)) {
+    const name = typeof body.profile.name === 'string' ? body.profile.name.trim().slice(0, 16) : '';
+    if (name && /^[\p{L}\p{N} '\-]+$/u.test(name) && (body.profile.gender === 'girl' || body.profile.gender === 'boy')) {
+      save.profile = { name, gender: body.profile.gender };
+    }
+  }
+
   // The first steps guide rides along when it is the right shape; unknown
   // step ids are dropped rather than trusted.
   if (body.guide && typeof body.guide === 'object' && !Array.isArray(body.guide)) {

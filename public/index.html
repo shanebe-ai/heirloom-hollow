@@ -86,6 +86,18 @@
     .panel .note { font-size: 16px; opacity: .8; margin: 8px 0 0; line-height: 1.35; }
     .panel .balance { font-size: 17px; font-weight: 700; margin: 0 0 8px; }
     #letterPanel .note { font-size: 17px; opacity: 1; }
+    .flabel { display: block; font-weight: 700; font-size: 15px; margin: 10px 0 2px; }
+    .tin { width: 100%; box-sizing: border-box; font: 16px 'Nunito', sans-serif; color: var(--ink);
+      background: #fff; border: 3px solid var(--ink); border-radius: 8px; padding: 7px 8px; margin: 2px 0 4px; }
+    .pickrow { display: flex; gap: 10px; margin: 6px 0 2px; }
+    .pick { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+      font: 600 15px 'Pixelify Sans', monospace; color: var(--ink); background: var(--paper);
+      border: 3px solid var(--ink); border-radius: 12px; padding: 8px 4px 6px; box-shadow: 0 3px 0 var(--edge); }
+    .pick.sel { background: #ffe1a8; transform: translateY(-3px); box-shadow: 0 6px 0 var(--edge); }
+    .pick .face { width: 48px; height: 72px; image-rendering: pixelated; background-size: 192px 288px;
+      background-position: -48px 0; background-repeat: no-repeat; }
+    .pick .face.girl { background-image: url('assets/sprites/rosie_walk.png'); }
+    .pick .face.boy { background-image: url('assets/sprites/rowan_walk.png'); }
     .panel .x { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%;
       border: 3px solid var(--ink); background: var(--paper); color: var(--ink); font: 600 18px/1 'Pixelify Sans', monospace; }
     .row { display: flex; align-items: center; gap: 8px; padding: 7px 2px; border-bottom: 2px dashed #c98f5f; font-size: 17px; }
@@ -194,12 +206,35 @@
   </div>
   <div class="panel" id="letterPanel">
     <h2>A letter from Grandma Hazel</h2>
-    <p class="note">Dear Rosie,</p>
+    <p class="note" id="letterGreeting">Dear Rosie,</p>
     <p class="note">The farm is yours now, and it will teach you as you go. Start at the signpost by the gate: the sack hanging there sells seeds. Hoe a patch of grass inside the fence, plant your seeds, and water them every day. When your can runs dry, the pond fills it again.</p>
     <p class="note">Sleep in the farmhouse bed when the day is done. Crops grow while you rest. When a crop is ripe and full, pick it with your hand and put it in the wooden box by the house. It ships in the night and the coins are yours by morning.</p>
     <p class="note">Be kind to the neighbours who stop by. They were fond of this place long before us.</p>
     <p class="note">All my love, Grandma Hazel</p>
     <div class="bigrow"><button class="pbtn soft" id="letterOk">Start farming</button></div>
+  </div>
+  <div class="panel" id="setupPanel">
+    <h2>Welcome to the farm</h2>
+    <p class="note">This farm is yours now. First, tell us who is moving in.</p>
+    <label class="flabel" for="setupName">Your farmer's name</label>
+    <input class="tin" id="setupName" maxlength="16" autocomplete="off" value="Rosie">
+    <div class="pickrow">
+      <button type="button" class="pick sel" id="pickGirl"><span class="face girl"></span>Girl</button>
+      <button type="button" class="pick" id="pickBoy"><span class="face boy"></span>Boy</button>
+    </div>
+    <label class="flabel" for="setupPw">Choose a password</label>
+    <input class="tin" id="setupPw" type="password" maxlength="64" autocomplete="new-password">
+    <label class="flabel" for="setupPw2">Type it once more</label>
+    <input class="tin" id="setupPw2" type="password" maxlength="64" autocomplete="new-password">
+    <p class="note">The password opens your farm on a new phone, together with your farm code. Pick one you will remember. If it is forgotten, there is no way back in on a new phone.</p>
+    <div class="bigrow"><button class="pbtn soft" id="setupGo">Move in</button></div>
+  </div>
+  <div class="panel" id="unlockPanel">
+    <h2>This farm has a password</h2>
+    <p class="note">Type the password for this farm to open it on this phone.</p>
+    <input class="tin" id="unlockPw" type="password" maxlength="64" autocomplete="current-password">
+    <p class="note" id="unlockMsg"></p>
+    <div class="bigrow"><button class="pbtn soft" id="unlockGo">Open the farm</button></div>
   </div>
   <div class="panel" id="settingsPanel">
     <button class="x" data-close aria-label="Close">×</button>

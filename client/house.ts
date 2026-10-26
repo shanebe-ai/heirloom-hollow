@@ -3,7 +3,7 @@
 // with the farmer waking in bed, a little poorer.
 import Phaser from 'phaser';
 import { T, INTERIOR, drawInterior } from './world';
-import { G, saveGame, sleepNight, GAME_MIN_PER_MS, clockLabel } from './state';
+import { G, saveGame, sleepNight, farmerKey, GAME_MIN_PER_MS, clockLabel } from './state';
 import { askSleep, showSummary, fade, anyPanelOpen, refreshHud } from './ui';
 import { DAY_END } from '../shared/rules.js';
 
@@ -44,7 +44,7 @@ export class House extends Phaser.Scene {
     this.add.image(0, 0, 'interior').setOrigin(0).setDepth(-10);
 
     const p = G.save.player.scene === 'house' ? G.save.player : INTERIOR.enter;
-    this.player = this.add.sprite(p.x * T + 16, p.y * T + 28, 'rosie', 1).setOrigin(0.5, 1);
+    this.player = this.add.sprite(p.x * T + 16, p.y * T + 28, farmerKey(), 1).setOrigin(0.5, 1);
     this.stand(this.player, 'up');
 
     const cam = this.cameras.main;
@@ -136,7 +136,7 @@ export class House extends Phaser.Scene {
     const dx = tx - s.x, dy = ty - s.y, dist = Math.hypot(dx, dy);
     const d: Dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
     setDir(d);
-    if (s.anims.currentAnim?.key !== `rosie-${d}` || !s.anims.isPlaying) s.play(`rosie-${d}`);
+    if (s.anims.currentAnim?.key !== `${farmerKey()}-${d}` || !s.anims.isPlaying) s.play(`${farmerKey()}-${d}`);
     const move = speed * dt;
     if (dist <= move) { s.setPosition(tx, ty); path.shift(); }
     else s.setPosition(s.x + (dx / dist) * move, s.y + (dy / dist) * move);

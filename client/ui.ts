@@ -1,12 +1,12 @@
 // The HTML layer over the canvas: the toolbar, the HUD chips and every panel.
 // It reads and writes the one game state in state.ts and never runs game
 // rules of its own beyond buying seeds and moving produce into the box.
-import { G, farmId, useFarmId, saveGame, blockSaves, markStep, guideActive } from './state';
+import { G, farmId, useFarmId, saveGame, blockSaves, markStep, guideActive, setFarmPassword, unlockFarm } from './state';
 import { ITEMS, CROPS, TIRED_BELOW, GUIDE_STEP_IDS } from '../shared/rules.js';
 import { drawToolIcon } from './world';
 
 const $ = (id: string) => document.getElementById(id)!;
-const PANELS = ['bagPanel', 'shopPanel', 'shipPanel', 'seedPop', 'sleepPanel', 'summaryPanel', 'settingsPanel', 'letterPanel'];
+const PANELS = ['bagPanel', 'shopPanel', 'shipPanel', 'seedPop', 'sleepPanel', 'summaryPanel', 'settingsPanel', 'letterPanel', 'setupPanel', 'unlockPanel'];
 
 /** The first steps guide: the card words and the hint line for each step. */
 const GUIDE_WORDS: Record<string, { label: string; hint: string }> = {
@@ -25,7 +25,7 @@ let guideWasActive = false;
 export function refreshGuide() {
   const g = G.save.guide;
   const card = $('stepsCard');
-  if (!g || !guideActive()) {
+  if (!g || !guideActive() || !G.save.profile) {
     card.classList.remove('on');
     if (guideWasActive && g && !g.off) {
       toast('That is the whole loop. The farm is yours now.');
@@ -58,10 +58,36 @@ export function refreshGuide() {
   hint.style.opacity = '1';
 }
 
+/** Hazel's letter, addressed to whoever farms here now. */
+export function openLetter() {
+  $('letterGreeting').textContent = `Dear ${G.save.profile?.name || 'Rosie'},`;
+  openPanel('letterPanel');
+}
+
 /** Hazel's letter greets any farmer who has not read it yet. */
 export function maybeShowLetter() {
   const g = G.save.guide;
-  if (g && !g.seen && !g.off) openPanel('letterPanel');
+  if (g && !g.seen && !g.off) openLetter();
+}
+
+let setupGender: 'girl' | 'boy' = 'girl';
+function pickGender(gender: 'girl' | 'boy') {
+  setupGender = gender;
+  $('pickGirl').classList.toggle('sel', gender === 'girl');
+  $('pickBoy').classList.toggle('sel', gender === 'boy');
+  const name = $('setupName') as HTMLInputElement;
+  if (name.value === 'Rosie' || name.value === 'Rowan' || !name.value) {
+    name.value = gender === 'girl' ? 'Rosie' : 'Rowan';
+  }
+}
+
+/** The first panels a player meets, in order: a locked farm asks for its
+ * password, a farm with no farmer yet asks who is moving in, and only then
+ * does Hazel's letter get its moment. */
+export function postLoadPanels() {
+  if (G.locked) { openPanel('unlockPanel'); return; }
+  if (!G.save.profile) { pickGender('girl'); openPanel('setupPanel'); return; }
+  maybeShowLetter();
 }
 
 export function closePanels() {
@@ -174,6 +200,7 @@ export function openShop() {
           G.save.coins -= crop.seedCost;
           G.save.inventory[crop.seed] = (G.save.inventory[crop.seed] ?? 0) + 1;
           markStep('buy');
+          toast(`Bought a ${crop.name.toLowerCase()} seed for ${crop.seedCost} coins. You have ${G.save.coins} coins.`);
           if (!ownedSeeds().includes(G.selectedSeed)) G.selectedSeed = crop.seed;
           openShop();
           refreshHud();
@@ -297,7 +324,28 @@ export function initUI() {
     refreshGuide();
     void saveGame();
   });
-  $('letterBtn').addEventListener('click', () => openPanel('letterPanel'));
+  $('letterBtn').addEventListener('click', openLetter);
+  $('pickGirl').addEventListener('click', () => pickGender('girl'));
+  $('pickBoy').addEventListener('click', () => pickGender('boy'));
+  $('setupGo').addEventListener('click', async () => {
+    const name = ($('setupName') as HTMLInputElement).value.trim();
+    if (!name) { toast('Your farmer needs a name.'); return; }
+    const pw = ($('setupPw') as HTMLInputElement).value;
+    const pw2 = ($('setupPw2') as HTMLInputElement).value;
+    if (pw.length < 4) { toast('The password needs at least 4 characters.'); return; }
+    if (pw !== pw2) { toast('The passwords do not match. Type them again.'); return; }
+    G.save.profile = { name, gender: setupGender };
+    const kept = await setFarmPassword(pw);
+    if (!kept) toast('The password could not be kept just now. Your farm code still opens the farm.');
+    await saveGame();
+    location.reload(); // come back in as the farmer just chosen, letter waiting
+  });
+  $('unlockGo').addEventListener('click', async () => {
+    const pw = ($('unlockPw') as HTMLInputElement).value;
+    if (await unlockFarm(pw)) { location.reload(); return; }
+    $('unlockMsg').textContent = 'That password did not work. Try again.';
+    ($('unlockPw') as HTMLInputElement).value = '';
+  });
   $('stepsHide').addEventListener('click', () => {
     if (G.save.guide) G.save.guide.off = true;
     refreshGuide();
@@ -314,5 +362,5 @@ export function initUI() {
     location.reload();
   });
   refreshHud();
-  maybeShowLetter();
+  postLoadPanels();
 }

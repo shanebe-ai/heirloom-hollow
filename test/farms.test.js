@@ -91,3 +91,15 @@ test('a malformed guide is dropped, not fatal to the save', () => {
   assert.ok(clean);
   assert.equal(clean.guide, undefined);
 });
+
+test('a well formed profile rides along with the save', () => {
+  const clean = validateSave({ ...newSave(), profile: { name: '  Ash Ketchum  ', gender: 'boy' } });
+  assert.ok(clean);
+  assert.deepEqual(clean.profile, { name: 'Ash Ketchum', gender: 'boy' });
+});
+
+test('a malformed profile is dropped, not fatal to the save', () => {
+  assert.equal(validateSave({ ...newSave(), profile: { name: 'Ash', gender: 'cat' } }).profile, undefined);
+  assert.equal(validateSave({ ...newSave(), profile: { name: '<script>', gender: 'girl' } }).profile, undefined);
+  assert.equal(validateSave({ ...newSave(), profile: 'Ash' }).profile, undefined);
+});

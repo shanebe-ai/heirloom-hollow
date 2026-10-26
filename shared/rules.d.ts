@@ -23,6 +23,7 @@ export interface Save {
   player: { x: number; y: number; scene: 'farm' | 'house' };
   chatMemory?: Record<string, { from: string; text: string }[]>;
   guide?: { seen: boolean; off: boolean; done: string[] };
+  profile?: { name: string; gender: 'girl' | 'boy' };
 }
 
 export interface CropDef {

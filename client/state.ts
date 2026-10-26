@@ -20,6 +20,8 @@ export const G = {
   save: newSave() as Save,
   farmId: '',
   loaded: false,
+  /** True when the server is holding this farm behind its password. */
+  locked: false,
   /** Lines for the morning summary card, set by a sleep or a pass out, read by the scene that wakes. */
   pendingSummary: null as { title: string; lines: string[] } | null,
   selectedTool: 'hand' as 'hoe' | 'can' | 'seeds' | 'hand',
@@ -28,6 +30,21 @@ export const G = {
 
 const ID_KEY = 'hh-farm-id';
 const MEMORY_KEY = 'hh-memory';
+const TOKEN_PREFIX = 'hh-token-';
+
+/** This device's token for the current farm, earned by setting or typing its password. */
+export function deviceToken(): string {
+  try { return localStorage.getItem(TOKEN_PREFIX + farmId()) || ''; } catch { return ''; }
+}
+
+function storeToken(token: string) {
+  try { localStorage.setItem(TOKEN_PREFIX + farmId(), token); } catch { /* private mode */ }
+}
+
+/** Which farmer walks the farm: Rowan for a boy, Rosie for a girl. */
+export function farmerKey(): 'rosie' | 'rowan' {
+  return G.save.profile?.gender === 'boy' ? 'rowan' : 'rosie';
+}
 
 function makeId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
@@ -61,8 +78,10 @@ export function useFarmId(id: string) {
 export async function loadGame(): Promise<void> {
   const id = farmId();
   try {
-    const res = await fetch(`api/farm/${id}`);
-    if (res.ok) {
+    const token = deviceToken();
+    const res = await fetch(`api/farm/${id}`, { headers: token ? { 'x-farm-token': token } : {} });
+    if (res.status === 401) G.locked = true; // the farm is waiting for its password
+    else if (res.ok) {
       const data = await res.json();
       if (data && data.version === 1) G.save = data as Save;
     }
@@ -73,8 +92,45 @@ export async function loadGame(): Promise<void> {
       if (old) G.save.chatMemory = JSON.parse(old);
     } catch { /* nothing to carry over */ }
   }
-  ensureGuide();
+  if (!G.locked) ensureGuide();
   G.loaded = true;
+}
+
+/** Give this farm a password. The server hands this device its token in
+ *  return, so the farmer who sets it is never locked out of their own farm.
+ *  False only when the server could not be reached; a password that is
+ *  already set counts as done. */
+export async function setFarmPassword(password: string): Promise<boolean> {
+  try {
+    const res = await fetch(`api/farm/${farmId()}/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    if (res.status === 201) {
+      const data = await res.json();
+      if (data.token) storeToken(data.token);
+      return true;
+    }
+    return res.status === 409;
+  } catch { return false; }
+}
+
+/** Type the farm's password on a new device: the server checks it and
+ *  hands this device a token of its own. */
+export async function unlockFarm(password: string): Promise<boolean> {
+  try {
+    const res = await fetch(`api/farm/${farmId()}/unlock`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (!data.token) return false;
+    storeToken(data.token);
+    return true;
+  } catch { return false; }
 }
 
 let saving = false;
@@ -85,12 +141,13 @@ let savesBlocked = false;
 export function blockSaves() { savesBlocked = true; }
 /** Send the farm to the server. Quiet on failure; the next autosave retries. */
 export async function saveGame(): Promise<void> {
-  if (!G.loaded || saving || savesBlocked) return;
+  if (!G.loaded || saving || savesBlocked || G.locked) return;
   saving = true;
   try {
+    const token = deviceToken();
     await fetch(`api/farm/${farmId()}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(token ? { 'x-farm-token': token } : {}) },
       body: JSON.stringify(G.save),
       keepalive: true, // still lands when the page is closing
     });

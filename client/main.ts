@@ -2,7 +2,7 @@
 // visitors, and sleep in the farmhouse. Milestone 1: a farm that grows.
 import Phaser from 'phaser';
 import { T, COLS, ROWS, layout, drawGround, drawHouse, drawTree, drawFence, drawSign, drawSoil, drawCrop, drawDeadPlant, drawShippingBox, Farm } from './world';
-import { G, loadGame, saveGame, startAutosave, tileAt, tileKey, sleepNight, markStep, guideActive, GAME_MIN_PER_MS, clockLabel } from './state';
+import { G, loadGame, saveGame, startAutosave, tileAt, tileKey, sleepNight, markStep, guideActive, farmerKey, GAME_MIN_PER_MS, clockLabel } from './state';
 import { initUI, refreshHud, openShop, openShip, showSummary, toast, fade, anyPanelOpen, closePanels } from './ui';
 import { SEASONS, DAY_END, ENERGY_COSTS, TIRED_BELOW, CROPS, ITEMS, cropStage, isRipe, harvestTile, CAN_CAPACITY } from '../shared/rules.js';
 import { House } from './house';
@@ -67,11 +67,12 @@ class Boot extends Phaser.Scene {
   preload() {
     const sheet = (k: string) => this.load.spritesheet(k, `assets/sprites/${k}_walk.png`, { frameWidth: 32, frameHeight: 48 });
     sheet('rosie');
+    sheet('rowan');
     for (const v of VISITORS) sheet(v.key);
     this.load.spritesheet('bramble', 'assets/sprites/bramble.png', { frameWidth: 32, frameHeight: 32 });
   }
   create() {
-    for (const key of ['rosie', ...VISITORS.map((v) => v.key)])
+    for (const key of ['rosie', 'rowan', ...VISITORS.map((v) => v.key)])
       DIRS.forEach((d, row) => this.anims.create({
         key: `${key}-${d}`, frameRate: 8, repeat: -1,
         frames: this.anims.generateFrameNumbers(key, { start: row * 4, end: row * 4 + 3 }),
@@ -159,7 +160,7 @@ class Farmyard extends Phaser.Scene {
     this.marker = this.add.graphics().setDepth(-5);
 
     const start = G.save.player.scene === 'farm' ? G.save.player : f.start;
-    this.player = this.add.sprite(start.x * T + 16, start.y * T + 28, 'rosie', 1).setOrigin(0.5, 1);
+    this.player = this.add.sprite(start.x * T + 16, start.y * T + 28, farmerKey(), 1).setOrigin(0.5, 1);
     for (const v of VISITORS) {
       const s = this.add.sprite(v.at.x * T + 16, v.at.y * T + 28, v.key, 1).setOrigin(0.5, 1);
       s.setInteractive({ useHandCursor: true, pixelPerfect: false });
@@ -442,7 +443,7 @@ class Farmyard extends Phaser.Scene {
     }
 
     const speed = G.save.energy < TIRED_BELOW ? 58 : 92;
-    const walking = this.step(this.player, this.playerPath, speed, dt, 'rosie', d => { this.playerDir = d; });
+    const walking = this.step(this.player, this.playerPath, speed, dt, farmerKey(), d => { this.playerDir = d; });
     if (!walking) {
       if (this.player.anims.isPlaying) this.stand(this.player, this.playerDir);
       this.marker.clear();

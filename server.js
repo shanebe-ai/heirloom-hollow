@@ -7,10 +7,15 @@ import { loadEnv, config } from './server/env.js';
 import { AIService, AiandProvider, GroqProvider, GeminiProvider } from './server/ai.js';
 import { talk, Limits } from './server/talk.js';
 import { validFarmId, validateSave, FarmStore, MAX_SAVE_BYTES } from './server/farms.js';
+import { CredStore, hashPassword, passwordMatches, newDeviceToken } from './server/creds.js';
 
 loadEnv();
 const cfg = config();
 const farms = new FarmStore(join(fileURLToPath(new URL('.', import.meta.url)), 'saves'));
+const creds = new CredStore(join(fileURLToPath(new URL('.', import.meta.url)), 'creds'));
+// Password guesses get six tries a minute per farm from one address:
+// plenty for a farmer who mistypes, a wall for anyone fishing.
+const unlockLimits = new Limits(6, Number.MAX_SAFE_INTEGER);
 // Saves are cheap but not free: a player autosaves every couple of minutes,
 // so 30 a minute each is generous headroom that still stops a flood.
 const saveLimits = new Limits(30, Number.MAX_SAFE_INTEGER);
@@ -52,10 +57,40 @@ function readBody(req, max = 8000) {
 }
 
 async function api(req, res, path) {
+  const credMatch = /^\/api\/farm\/([^/]+)\/(password|unlock)$/.exec(path);
+  if (credMatch && req.method === 'POST') {
+    const id = credMatch[1];
+    if (!validFarmId(id)) return send(res, 400, { error: 'bad farm id' });
+    let body;
+    try { body = JSON.parse(await readBody(req, 2000)); } catch { return send(res, 400, { error: 'bad request' }); }
+    const password = typeof body?.password === 'string' ? body.password : '';
+    if (credMatch[2] === 'password') {
+      if (password.length < 4 || password.length > 64) return send(res, 400, { error: 'password needs 4 to 64 characters' });
+      if (await creds.load(id)) return send(res, 409, { error: 'this farm already has a password' });
+      const cred = await hashPassword(password);
+      const token = newDeviceToken();
+      await creds.addDevice(id, cred, token);
+      return send(res, 201, { token });
+    }
+    // Unlocking: the right password earns this device a token of its own.
+    if (!unlockLimits.allow(`${req.socket.remoteAddress || '?'}|${id}`)) return send(res, 429, { error: 'too many tries, rest a minute' });
+    const cred = await creds.load(id);
+    if (!cred) return send(res, 400, { error: 'this farm has no password' });
+    if (!(await passwordMatches(password, cred))) return send(res, 401, { error: 'wrong password' });
+    const token = newDeviceToken();
+    await creds.addDevice(id, cred, token);
+    return send(res, 200, { token });
+  }
   const farmMatch = /^\/api\/farm\/(.+)$/.exec(path);
   if (farmMatch && (req.method === 'GET' || req.method === 'PUT')) {
     const id = farmMatch[1];
     if (!validFarmId(id)) return send(res, 400, { error: 'bad farm id' });
+    // A farm with a password only opens, and only accepts saves, from a
+    // device it trusts. Farms without one behave exactly as they always did.
+    const cred = await creds.load(id);
+    if (cred && !CredStore.trusts(cred, req.headers['x-farm-token'])) {
+      return send(res, 401, { error: 'password required', passwordRequired: true });
+    }
     if (req.method === 'GET') {
       const save = await farms.load(id);
       return save ? send(res, 200, save) : send(res, 404, { error: 'no farm with that code' });
