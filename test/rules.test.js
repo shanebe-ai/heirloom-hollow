@@ -136,3 +136,13 @@ test('passing out costs 10 percent of coins, capped at 50', () => {
   assert.equal(passOutPenalty(120), 12);
   assert.equal(passOutPenalty(0), 0);
 });
+
+test('the flower stall never pays out: every price beats the shipping box', async () => {
+  const { ITEMS, FLOWER_STALL, FARMER_LOOKS } = await import('../shared/rules.js');
+  for (const { item, price } of FLOWER_STALL) {
+    assert.ok(ITEMS[item], `stall item ${item} exists`);
+    assert.ok(price > ITEMS[item].sell, `${item} costs ${price} at the stall, ships for ${ITEMS[item].sell}`);
+  }
+  assert.equal(FARMER_LOOKS.length, 4);
+  assert.equal(new Set(FARMER_LOOKS.map((l) => l.key)).size, 4);
+});

@@ -2,7 +2,7 @@
 // It loads from the server under the player's farm code, saves itself back
 // every couple of minutes and whenever the player sleeps, and knows how a
 // night passes. Game code decides everything here; the AI never touches it.
-import { Save, Tile, newSave, advanceNight, passOutPenalty, DAY_START, MAX_ENERGY, SEASONS, ITEMS, GUIDE_STEP_IDS } from '../shared/rules.js';
+import { Save, Tile, newSave, advanceNight, passOutPenalty, DAY_START, MAX_ENERGY, SEASONS, ITEMS, GUIDE_STEP_IDS, FARMER_LOOKS } from '../shared/rules.js';
 
 /** A day lasts 12 real minutes: 6am to 2am is 20 game hours. */
 export const GAME_MIN_PER_MS = (20 * 60) / (12 * 60 * 1000);
@@ -41,9 +41,12 @@ function storeToken(token: string) {
   try { localStorage.setItem(TOKEN_PREFIX + farmId(), token); } catch { /* private mode */ }
 }
 
-/** Which farmer walks the farm: Rowan for a boy, Rosie for a girl. */
-export function farmerKey(): 'rosie' | 'rowan' {
-  return G.save.profile?.gender === 'boy' ? 'rowan' : 'rosie';
+/** Which farmer walks the farm: the chosen look when there is one, and
+ *  before looks existed it was Rowan for a boy and Rosie for a girl. */
+export function farmerKey(): string {
+  const p = G.save.profile;
+  if (p?.look && FARMER_LOOKS.some((l) => l.key === p.look)) return p.look;
+  return p?.gender === 'boy' ? 'rowan' : 'rosie';
 }
 
 function makeId(): string {

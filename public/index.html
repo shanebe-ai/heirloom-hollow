@@ -89,15 +89,17 @@
     .flabel { display: block; font-weight: 700; font-size: 15px; margin: 10px 0 2px; }
     .tin { width: 100%; box-sizing: border-box; font: 16px 'Nunito', sans-serif; color: var(--ink);
       background: #fff; border: 3px solid var(--ink); border-radius: 8px; padding: 7px 8px; margin: 2px 0 4px; }
-    .pickrow { display: flex; gap: 10px; margin: 6px 0 2px; }
-    .pick { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    .pickrow { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 2px; }
+    .pick { flex: 1 1 38%; display: flex; flex-direction: column; align-items: center; gap: 2px;
       font: 600 15px 'Pixelify Sans', monospace; color: var(--ink); background: var(--paper);
       border: 3px solid var(--ink); border-radius: 12px; padding: 8px 4px 6px; box-shadow: 0 3px 0 var(--edge); }
     .pick.sel { background: #ffe1a8; transform: translateY(-3px); box-shadow: 0 6px 0 var(--edge); }
     .pick .face { width: 48px; height: 72px; image-rendering: pixelated; background-size: 192px 288px;
       background-position: -48px 0; background-repeat: no-repeat; }
-    .pick .face.girl { background-image: url('assets/sprites/rosie_walk.png'); }
-    .pick .face.boy { background-image: url('assets/sprites/rowan_walk.png'); }
+    .pick .face.rosie { background-image: url('assets/sprites/rosie_walk.png'); }
+    .pick .face.rowan { background-image: url('assets/sprites/rowan_walk.png'); }
+    .pick .face.ivy { background-image: url('assets/sprites/ivy_walk.png'); }
+    .pick .face.reed { background-image: url('assets/sprites/reed_walk.png'); }
     .panel .x { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%;
       border: 3px solid var(--ink); background: var(--paper); color: var(--ink); font: 600 18px/1 'Pixelify Sans', monospace; }
     .row { display: flex; align-items: center; gap: 8px; padding: 7px 2px; border-bottom: 2px dashed #c98f5f; font-size: 17px; }
@@ -219,8 +221,10 @@
     <label class="flabel" for="setupName">Your farmer's name</label>
     <input class="tin" id="setupName" maxlength="16" autocomplete="off" value="Rosie">
     <div class="pickrow">
-      <button type="button" class="pick sel" id="pickGirl"><span class="face girl"></span>Girl</button>
-      <button type="button" class="pick" id="pickBoy"><span class="face boy"></span>Boy</button>
+      <button type="button" class="pick sel" id="pick-rosie"><span class="face rosie"></span>Rosie</button>
+      <button type="button" class="pick" id="pick-rowan"><span class="face rowan"></span>Rowan</button>
+      <button type="button" class="pick" id="pick-ivy"><span class="face ivy"></span>Ivy</button>
+      <button type="button" class="pick" id="pick-reed"><span class="face reed"></span>Reed</button>
     </div>
     <label class="flabel" for="setupPw">Choose a password</label>
     <input class="tin" id="setupPw" type="password" maxlength="64" autocomplete="new-password">
@@ -228,6 +232,14 @@
     <input class="tin" id="setupPw2" type="password" maxlength="64" autocomplete="new-password">
     <p class="note">The password opens your farm on a new phone, together with your farm code. Pick one you will remember. If it is forgotten, there is no way back in on a new phone.</p>
     <div class="bigrow"><button class="pbtn soft" id="setupGo">Move in</button></div>
+  </div>
+  <div class="panel" id="stallPanel">
+    <button class="x" data-close aria-label="Close">×</button>
+    <h2>Marigold's flowers</h2>
+    <div class="balance" id="stallCoins"></div>
+    <p class="note">Fresh cut this morning. A flower given means more than a flower kept.</p>
+    <div id="stallList"></div>
+    <div class="bigrow"><button class="pbtn soft" id="stallChat">Chat with Marigold</button></div>
   </div>
   <div class="panel" id="unlockPanel">
     <h2>This farm has a password</h2>

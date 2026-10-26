@@ -2,11 +2,11 @@
 // It reads and writes the one game state in state.ts and never runs game
 // rules of its own beyond buying seeds and moving produce into the box.
 import { G, farmId, useFarmId, saveGame, blockSaves, markStep, guideActive, setFarmPassword, unlockFarm } from './state';
-import { ITEMS, CROPS, TIRED_BELOW, GUIDE_STEP_IDS } from '../shared/rules.js';
+import { ITEMS, CROPS, TIRED_BELOW, GUIDE_STEP_IDS, FARMER_LOOKS, FLOWER_STALL } from '../shared/rules.js';
 import { drawToolIcon } from './world';
 
 const $ = (id: string) => document.getElementById(id)!;
-const PANELS = ['bagPanel', 'shopPanel', 'shipPanel', 'seedPop', 'sleepPanel', 'summaryPanel', 'settingsPanel', 'letterPanel', 'setupPanel', 'unlockPanel'];
+const PANELS = ['bagPanel', 'shopPanel', 'shipPanel', 'seedPop', 'sleepPanel', 'summaryPanel', 'settingsPanel', 'letterPanel', 'setupPanel', 'unlockPanel', 'stallPanel'];
 
 /** The first steps guide: the card words and the hint line for each step. */
 const GUIDE_WORDS: Record<string, { label: string; hint: string }> = {
@@ -70,15 +70,13 @@ export function maybeShowLetter() {
   if (g && !g.seen && !g.off) openLetter();
 }
 
-let setupGender: 'girl' | 'boy' = 'girl';
-function pickGender(gender: 'girl' | 'boy') {
-  setupGender = gender;
-  $('pickGirl').classList.toggle('sel', gender === 'girl');
-  $('pickBoy').classList.toggle('sel', gender === 'boy');
+let setupLook = FARMER_LOOKS[0];
+function pickLook(key: string) {
+  const look = FARMER_LOOKS.find((l) => l.key === key) || FARMER_LOOKS[0];
+  setupLook = look;
+  for (const l of FARMER_LOOKS) $(`pick-${l.key}`).classList.toggle('sel', l.key === look.key);
   const name = $('setupName') as HTMLInputElement;
-  if (name.value === 'Rosie' || name.value === 'Rowan' || !name.value) {
-    name.value = gender === 'girl' ? 'Rosie' : 'Rowan';
-  }
+  if (!name.value || FARMER_LOOKS.some((l) => l.name === name.value)) name.value = look.name;
 }
 
 /** The first panels a player meets, in order: a locked farm asks for its
@@ -86,8 +84,38 @@ function pickGender(gender: 'girl' | 'boy') {
  * does Hazel's letter get its moment. */
 export function postLoadPanels() {
   if (G.locked) { openPanel('unlockPanel'); return; }
-  if (!G.save.profile) { pickGender('girl'); openPanel('setupPanel'); return; }
+  if (!G.save.profile) { pickLook('rosie'); openPanel('setupPanel'); return; }
   maybeShowLetter();
+}
+
+/** Marigold's flower stall: bought flowers are for giving, and every
+ * purchase answers out loud like the seed sack does. */
+export function openStall() {
+  $('stallCoins').textContent = `You have ${G.save.coins} coins.`;
+  const list = $('stallList');
+  list.innerHTML = '';
+  for (const { item, price } of FLOWER_STALL) {
+    const def = ITEMS[item];
+    const owned = G.save.inventory[item] ?? 0;
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `<span>${def.name}${owned ? ` <span class="own">(${owned} in your bag)</span>` : ''}</span>`;
+    const btn = document.createElement('button');
+    btn.textContent = `Buy ${price}`;
+    btn.disabled = G.save.coins < price;
+    btn.addEventListener('click', () => {
+      if (G.save.coins < price) return;
+      G.save.coins -= price;
+      G.save.inventory[item] = (G.save.inventory[item] ?? 0) + 1;
+      toast(`Bought a ${def.name.toLowerCase()} for ${price} coins. You have ${G.save.coins} coins.`);
+      void saveGame();
+      refreshHud();
+      openStall();
+    });
+    row.appendChild(btn);
+    list.appendChild(row);
+  }
+  openPanel('stallPanel');
 }
 
 export function closePanels() {
@@ -325,8 +353,11 @@ export function initUI() {
     void saveGame();
   });
   $('letterBtn').addEventListener('click', openLetter);
-  $('pickGirl').addEventListener('click', () => pickGender('girl'));
-  $('pickBoy').addEventListener('click', () => pickGender('boy'));
+  for (const l of FARMER_LOOKS) $(`pick-${l.key}`).addEventListener('click', () => pickLook(l.key));
+  $('stallChat').addEventListener('click', () => {
+    closePanels();
+    document.dispatchEvent(new CustomEvent('hh-chat', { detail: 'marigold' }));
+  });
   $('setupGo').addEventListener('click', async () => {
     const name = ($('setupName') as HTMLInputElement).value.trim();
     if (!name) { toast('Your farmer needs a name.'); return; }
@@ -334,7 +365,7 @@ export function initUI() {
     const pw2 = ($('setupPw2') as HTMLInputElement).value;
     if (pw.length < 4) { toast('The password needs at least 4 characters.'); return; }
     if (pw !== pw2) { toast('The passwords do not match. Type them again.'); return; }
-    G.save.profile = { name, gender: setupGender };
+    G.save.profile = { name, gender: setupLook.gender, look: setupLook.key };
     const kept = await setFarmPassword(pw);
     if (!kept) toast('The password could not be kept just now. Your farm code still opens the farm.');
     await saveGame();

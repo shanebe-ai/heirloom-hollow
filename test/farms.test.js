@@ -103,3 +103,10 @@ test('a malformed profile is dropped, not fatal to the save', () => {
   assert.equal(validateSave({ ...newSave(), profile: { name: '<script>', gender: 'girl' } }).profile, undefined);
   assert.equal(validateSave({ ...newSave(), profile: 'Ash' }).profile, undefined);
 });
+
+test('a known farmer look rides along, an invented one is dropped', () => {
+  const clean = validateSave({ ...newSave(), profile: { name: 'Ivy', gender: 'girl', look: 'ivy' } });
+  assert.equal(clean.profile.look, 'ivy');
+  const odd = validateSave({ ...newSave(), profile: { name: 'Ivy', gender: 'girl', look: 'dragon' } });
+  assert.deepEqual(odd.profile, { name: 'Ivy', gender: 'girl' });
+});

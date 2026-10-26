@@ -29,6 +29,8 @@ export const ITEMS = {
   strawberry: { name: 'Strawberry', plural: 'strawberries', sell: CROPS.strawberry.sell },
   potato: { name: 'Potato', plural: 'potatoes', sell: CROPS.potato.sell },
   tulip: { name: 'Pink tulip', plural: 'pink tulips', sell: CROPS.tulip.sell },
+  daisy: { name: 'Daisy', plural: 'daisies', sell: 20 },
+  sunflower: { name: 'Sunflower', plural: 'sunflowers', sell: 45 },
   seed_turnip: { name: 'Turnip seeds', plural: 'turnip seeds', buy: CROPS.turnip.seedCost, crop: 'turnip' },
   seed_strawberry: { name: 'Strawberry seeds', plural: 'strawberry seeds', buy: CROPS.strawberry.seedCost, crop: 'strawberry' },
   seed_potato: { name: 'Potato seeds', plural: 'potato seeds', buy: CROPS.potato.seedCost, crop: 'potato' },
@@ -141,3 +143,21 @@ export function advanceNight(save) {
 /** The first steps guide, in the order a new farmer meets them. The client
  * keeps the friendly words for each step; the server only checks the ids. */
 export const GUIDE_STEP_IDS = ['buy', 'hoe', 'plant', 'water', 'sleep', 'harvest', 'ship'];
+
+/** The farmers a player can move in as: two girls and two boys to start.
+ *  The name is the one the setup offers before it is changed to anything. */
+export const FARMER_LOOKS = [
+  { key: 'rosie', name: 'Rosie', gender: 'girl' },
+  { key: 'rowan', name: 'Rowan', gender: 'boy' },
+  { key: 'ivy', name: 'Ivy', gender: 'girl' },
+  { key: 'reed', name: 'Reed', gender: 'boy' },
+];
+
+/** Marigold's flower stall. Every price sits above what the shipping box
+ *  pays for the same flower, so a bought flower is for giving or keeping,
+ *  never for printing coins. Growing your own stays the profitable way. */
+export const FLOWER_STALL = [
+  { item: 'tulip', price: 90 },
+  { item: 'daisy', price: 30 },
+  { item: 'sunflower', price: 60 },
+];

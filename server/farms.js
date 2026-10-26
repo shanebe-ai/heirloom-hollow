@@ -5,7 +5,7 @@
 // over the old save, so a crash mid write cannot corrupt a farm.
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { CROPS, ITEMS, GUIDE_STEP_IDS } from '../shared/rules.js';
+import { CROPS, ITEMS, GUIDE_STEP_IDS, FARMER_LOOKS } from '../shared/rules.js';
 
 const ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TILE_KEY_RE = /^(\d{1,2}),(\d{1,2})$/;
@@ -88,6 +88,7 @@ export function validateSave(body) {
     const name = typeof body.profile.name === 'string' ? body.profile.name.trim().slice(0, 16) : '';
     if (name && /^[\p{L}\p{N} '\-]+$/u.test(name) && (body.profile.gender === 'girl' || body.profile.gender === 'boy')) {
       save.profile = { name, gender: body.profile.gender };
+      if (FARMER_LOOKS.some((l) => l.key === body.profile.look)) save.profile.look = body.profile.look;
     }
   }
 

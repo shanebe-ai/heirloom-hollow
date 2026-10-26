@@ -3,7 +3,7 @@
 import Phaser from 'phaser';
 import { T, COLS, ROWS, layout, drawGround, drawHouse, drawTree, drawFence, drawSign, drawSoil, drawCrop, drawDeadPlant, drawShippingBox, Farm } from './world';
 import { G, loadGame, saveGame, startAutosave, tileAt, tileKey, sleepNight, markStep, guideActive, farmerKey, GAME_MIN_PER_MS, clockLabel } from './state';
-import { initUI, refreshHud, openShop, openShip, showSummary, toast, fade, anyPanelOpen, closePanels } from './ui';
+import { initUI, refreshHud, openShop, openShip, openStall, showSummary, toast, fade, anyPanelOpen, closePanels } from './ui';
 import { SEASONS, DAY_END, ENERGY_COSTS, TIRED_BELOW, CROPS, ITEMS, cropStage, isRipe, harvestTile, CAN_CAPACITY } from '../shared/rules.js';
 import { House } from './house';
 
@@ -48,6 +48,11 @@ export const VISITORS = [
     'Every thread in my window was spun by someone in this valley.',
     'Hold still... yes, I was measuring you for a scarf. Sorry!',
   ] },
+  { key: 'marigold', name: 'Marigold', at: { x: 24, y: 5 }, lines: [
+    'A flower given means more than a flower kept. That is the whole business, really.',
+    'Your grandma bought tulips from my mother every spring. Every single spring.',
+    'Daisies for friends, sunflowers for courage, tulips for someone special.',
+  ] },
   { key: 'hana', name: 'Hana', at: { x: 26, y: 8 }, lines: [
     'Your tomatoes are leaning east. So is your fence. Interesting.',
     'Tea is better shared. The pot is always warm at mine.',
@@ -68,11 +73,13 @@ class Boot extends Phaser.Scene {
     const sheet = (k: string) => this.load.spritesheet(k, `assets/sprites/${k}_walk.png`, { frameWidth: 32, frameHeight: 48 });
     sheet('rosie');
     sheet('rowan');
+    sheet('ivy');
+    sheet('reed');
     for (const v of VISITORS) sheet(v.key);
     this.load.spritesheet('bramble', 'assets/sprites/bramble.png', { frameWidth: 32, frameHeight: 32 });
   }
   create() {
-    for (const key of ['rosie', 'rowan', ...VISITORS.map((v) => v.key)])
+    for (const key of ['rosie', 'rowan', 'ivy', 'reed', ...VISITORS.map((v) => v.key)])
       DIRS.forEach((d, row) => this.anims.create({
         key: `${key}-${d}`, frameRate: 8, repeat: -1,
         frames: this.anims.generateFrameNumbers(key, { start: row * 4, end: row * 4 + 3 }),
@@ -170,6 +177,14 @@ class Farmyard extends Phaser.Scene {
     this.bramble = this.add.sprite(f.bramble.x * T + 16, f.bramble.y * T + 30, 'bramble', 8).setOrigin(0.5, 1).play('fox-sit');
     this.bramble.setInteractive({ useHandCursor: true });
     f.blocked[f.bramble.y][f.bramble.x] = true;
+
+    // The stall's chat button asks for a conversation by name; answer it here.
+    const onChat = (e: Event) => {
+      const person = this.people.find((p) => p.key === (e as CustomEvent).detail);
+      if (person) this.openTalk(person);
+    };
+    document.addEventListener('hh-chat', onChat);
+    this.events.once('shutdown', () => document.removeEventListener('hh-chat', onChat));
 
     this.night = this.add.rectangle(0, 0, COLS * T, ROWS * T, 0x1a1840, 0).setOrigin(0).setDepth(9000);
 
@@ -389,7 +404,13 @@ class Farmyard extends Phaser.Scene {
 
   /** Fires when the farmer reaches whatever they were walking to. */
   arrived() {
-    if (this.talkTarget) { this.openTalk(this.talkTarget); return; }
+    if (this.talkTarget) {
+      // Marigold sells first and chats second: her stall opens on approach,
+      // and the chat button inside it finds its way back to a conversation.
+      if (this.talkTarget !== 'bramble' && this.talkTarget.key === 'marigold') { openStall(); return; }
+      this.openTalk(this.talkTarget);
+      return;
+    }
     if (this.interactTarget) {
       const target = this.interactTarget;
       this.interactTarget = null;
