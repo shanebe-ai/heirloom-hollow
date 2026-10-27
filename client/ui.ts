@@ -2,7 +2,7 @@
 // It reads and writes the one game state in state.ts and never runs game
 // rules of its own beyond buying seeds and moving produce into the box.
 import { G, farmId, useFarmId, saveGame, blockSaves, markStep, guideActive, setFarmPassword, unlockFarm } from './state';
-import { ITEMS, CROPS, TIRED_BELOW, GUIDE_STEP_IDS, FARMER_LOOKS, FLOWER_STALL, nameIsKind } from '../shared/rules.js';
+import { ITEMS, CROPS, TIRED_BELOW, GUIDE_STEP_IDS, FARMER_LOOKS, FLOWER_STALL, nameIsKind, nameIsTaken } from '../shared/rules.js';
 import { drawToolIcon } from './world';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -60,7 +60,7 @@ export function refreshGuide() {
 
 /** Hazel's letter, addressed to whoever farms here now. */
 export function openLetter() {
-  $('letterGreeting').textContent = `Dear ${G.save.profile?.name || 'Rosie'},`;
+  $('letterGreeting').textContent = `Dear ${G.save.profile?.name || 'Rosa'},`;
   openPanel('letterPanel');
 }
 
@@ -368,7 +368,7 @@ export function initUI() {
   $('setupGo').addEventListener('click', async () => {
     const name = ($('setupName') as HTMLInputElement).value.trim();
     if (!name) { toast('Your farmer needs a name.'); return; }
-    if (!nameIsKind(name)) { toast('That name will not do here. Pick another one.'); return; }
+    if (!nameIsKind(name) || nameIsTaken(name)) { toast('That name will not do here. Pick another one.'); return; }
     const pw = ($('setupPw') as HTMLInputElement).value;
     const pw2 = ($('setupPw2') as HTMLInputElement).value;
     if (pw.length < 4) { toast('The password needs at least 4 characters.'); return; }

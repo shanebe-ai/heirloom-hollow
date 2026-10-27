@@ -147,7 +147,7 @@ export const GUIDE_STEP_IDS = ['buy', 'hoe', 'plant', 'water', 'sleep', 'harvest
 /** The farmers a player can move in as: two girls and two boys to start.
  *  The name is the one the setup offers before it is changed to anything. */
 export const FARMER_LOOKS = [
-  { key: 'rosie', name: 'Rosie', gender: 'girl' },
+  { key: 'rosie', name: 'Rosa', gender: 'girl' },
   { key: 'rowan', name: 'Rowan', gender: 'boy' },
   { key: 'ivy', name: 'Ivy', gender: 'girl' },
   { key: 'reed', name: 'Reed', gender: 'boy' },
@@ -167,6 +167,21 @@ export function nameIsKind(name) {
   if (words.some((w) => UNKIND_WORDS.includes(w))) return false;
   const joined = words.join('');
   return !UNKIND_ANYWHERE.some((w) => joined.includes(w));
+}
+
+/** A name folded down for comparing: lower case, accents stripped, so
+ *  Rosie, ROSIE and Rosíe all fold to the same word. */
+export function nameFold(name) {
+  return String(name).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+}
+
+/** Names the game keeps for its own people, so a farmer cannot move in
+ *  under one: Rosie is the florist in Hollow Square, and she was there
+ *  first. Checked folded, the way names are compared everywhere here. */
+const TAKEN_NAMES = ['rosie'];
+
+export function nameIsTaken(name) {
+  return TAKEN_NAMES.includes(nameFold(name));
 }
 
 /** Marigold's flower stall. Every price sits above what the shipping box

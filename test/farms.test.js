@@ -116,6 +116,15 @@ test('an unkind farmer name drops the whole profile at the server door', () => {
   assert.equal(validateSave({ ...newSave(), profile: { name: 'sh1t', gender: 'girl' } }).profile, undefined);
 });
 
+test('a kept name drops the profile, unless the farmer already had it', () => {
+  assert.equal(validateSave({ ...newSave(), profile: { name: 'Rosie', gender: 'girl' } }).profile, undefined);
+  assert.equal(validateSave({ ...newSave(), profile: { name: 'ROSIE', gender: 'girl' } }).profile, undefined);
+  assert.equal(validateSave({ ...newSave(), profile: { name: 'Rosie', gender: 'girl' } }, { existingName: 'Ash' }).profile, undefined);
+  const hers = validateSave({ ...newSave(), profile: { name: 'Rosie', gender: 'girl', look: 'rosie' } }, { existingName: 'rosie' });
+  assert.deepEqual(hers.profile, { name: 'Rosie', gender: 'girl', look: 'rosie' });
+  assert.ok(validateSave({ ...newSave(), profile: { name: 'Rosa', gender: 'girl' } }).profile);
+});
+
 test('a chosen accessory rides along, an invented one is dropped', () => {
   const clean = validateSave({ ...newSave(), profile: { name: 'Ash', gender: 'boy', accessory: 'backpack' } });
   assert.equal(clean.profile.accessory, 'backpack');

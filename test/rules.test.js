@@ -158,3 +158,14 @@ test('the kind name check refuses rude names and leaves ordinary ones alone', as
   assert.equal(nameIsKind('xxFuckxx'), false);
   assert.equal(nameIsKind('Nazi Bob'), false);
 });
+
+test('a name the game keeps for its own people is off limits to farmers', async () => {
+  const { nameIsTaken } = await import('../shared/rules.js');
+  assert.equal(nameIsTaken('Rosie'), true);
+  assert.equal(nameIsTaken('rosie'), true);
+  assert.equal(nameIsTaken('ROSIE'), true);
+  assert.equal(nameIsTaken('Rosíe'), true);
+  assert.equal(nameIsTaken('Rosa'), false);
+  assert.equal(nameIsTaken('Rowan'), false);
+  assert.equal(nameIsTaken('Rosemary'), false);
+});

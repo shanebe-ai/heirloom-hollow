@@ -5,7 +5,7 @@
 // over the old save, so a crash mid write cannot corrupt a farm.
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { CROPS, ITEMS, GUIDE_STEP_IDS, FARMER_LOOKS, nameIsKind } from '../shared/rules.js';
+import { CROPS, ITEMS, GUIDE_STEP_IDS, FARMER_LOOKS, nameIsKind, nameIsTaken, nameFold } from '../shared/rules.js';
 
 const ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TILE_KEY_RE = /^(\d{1,2}),(\d{1,2})$/;
@@ -29,7 +29,7 @@ const counts = (v) => {
 /** Checks a save body from a player and returns a clean copy, or null when
  *  anything is off. The client is trusted to play fair, not to be careful:
  *  this keeps a broken or hostile body from reaching the disk. */
-export function validateSave(body) {
+export function validateSave(body, opts = {}) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
   if (body.version !== 1) return null;
   if (!num(body.day, 1, 14) || !num(body.season, 0, 3) || !num(body.year, 1, 9999)) return null;
@@ -84,9 +84,12 @@ export function validateSave(body) {
 
   // The farmer's name and who they play as ride along when they are the
   // right shape. Names are short, plain, and safe to show anywhere.
+  // A name the game keeps for its own people is refused, except by the
+  // farmer who already had it before it was kept: she keeps her name.
   if (body.profile && typeof body.profile === 'object' && !Array.isArray(body.profile)) {
     const name = typeof body.profile.name === 'string' ? body.profile.name.trim().slice(0, 16) : '';
-    if (name && /^[\p{L}\p{N} '\-]+$/u.test(name) && nameIsKind(name) && (body.profile.gender === 'girl' || body.profile.gender === 'boy')) {
+    const alreadyHers = typeof opts.existingName === 'string' && nameFold(opts.existingName) === nameFold(name);
+    if (name && /^[\p{L}\p{N} '\-]+$/u.test(name) && nameIsKind(name) && (!nameIsTaken(name) || alreadyHers) && (body.profile.gender === 'girl' || body.profile.gender === 'boy')) {
       save.profile = { name, gender: body.profile.gender };
       if (FARMER_LOOKS.some((l) => l.key === body.profile.look)) save.profile.look = body.profile.look;
       if (['backpack', 'purse', 'none'].includes(body.profile.accessory)) save.profile.accessory = body.profile.accessory;

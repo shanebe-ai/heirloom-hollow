@@ -98,7 +98,8 @@ async function api(req, res, path) {
     if (!saveLimits.allow(req.socket.remoteAddress || '?')) return send(res, 429, { error: 'saving too often' });
     let body;
     try { body = JSON.parse(await readBody(req, MAX_SAVE_BYTES)); } catch { return send(res, 400, { error: 'bad request' }); }
-    const save = validateSave(body);
+    const existing = await farms.load(id);
+    const save = validateSave(body, { existingName: existing?.profile?.name });
     if (!save) return send(res, 400, { error: 'that save does not look right' });
     await farms.store(id, save);
     return send(res, 200, { ok: true });

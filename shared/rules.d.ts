@@ -59,6 +59,8 @@ export declare const GUIDE_STEP_IDS: string[];
 export declare const FARMER_LOOKS: { key: string; name: string; gender: 'girl' | 'boy' }[];
 export declare const FLOWER_STALL: { item: string; price: number }[];
 export declare function nameIsKind(name: string): boolean;
+export declare function nameFold(name: string): string;
+export declare function nameIsTaken(name: string): boolean;
 export declare const CROPS: Record<string, CropDef>;
 export declare const ITEMS: Record<string, ItemDef>;
 
