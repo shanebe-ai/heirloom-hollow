@@ -369,6 +369,10 @@ export function initUI() {
     const name = ($('setupName') as HTMLInputElement).value.trim();
     if (!name) { toast('Your farmer needs a name.'); return; }
     if (!nameIsKind(name) || nameIsTaken(name)) { toast('That name will not do here. Pick another one.'); return; }
+    try {
+      const r = await fetch(`/api/name/${encodeURIComponent(name)}`);
+      if (r.ok && (await r.json()).taken) { toast('Another farmer already goes by that name. Pick another one.'); return; }
+    } catch { /* the server keeps the final word when the farm is saved */ }
     const pw = ($('setupPw') as HTMLInputElement).value;
     const pw2 = ($('setupPw2') as HTMLInputElement).value;
     if (pw.length < 4) { toast('The password needs at least 4 characters.'); return; }

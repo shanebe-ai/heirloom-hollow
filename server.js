@@ -8,11 +8,14 @@ import { AIService, AiandProvider, GroqProvider, GeminiProvider } from './server
 import { talk, Limits } from './server/talk.js';
 import { validFarmId, validateSave, FarmStore, MAX_SAVE_BYTES } from './server/farms.js';
 import { CredStore, hashPassword, passwordMatches, newDeviceToken } from './server/creds.js';
+import { NameRegistry } from './server/names.js';
+import { nameFold, nameIsTaken } from './shared/rules.js';
 
 loadEnv();
 const cfg = config();
 const farms = new FarmStore(join(fileURLToPath(new URL('.', import.meta.url)), 'saves'));
 const creds = new CredStore(join(fileURLToPath(new URL('.', import.meta.url)), 'creds'));
+const names = new NameRegistry(join(fileURLToPath(new URL('.', import.meta.url)), 'saves'));
 // Password guesses get six tries a minute per farm from one address:
 // plenty for a farmer who mistypes, a wall for anyone fishing.
 const unlockLimits = new Limits(6, Number.MAX_SAFE_INTEGER);
@@ -57,6 +60,21 @@ function readBody(req, max = 8000) {
 }
 
 async function api(req, res, path) {
+  // Is this farmer name already somebody's? Asked at move in, answered
+  // from the registry. A name the game keeps for its own people counts
+  // as taken too.
+  const nameMatch = /^\/api\/name\/(.+)$/.exec(path);
+  if (nameMatch && req.method === 'GET') {
+    let wanted = '';
+    try {
+      wanted = decodeURIComponent(nameMatch[1]);
+    } catch {
+      return send(res, 400, { error: 'bad name' });
+    }
+    await names.ready;
+    const taken = nameIsTaken(wanted) || names.ownerOf(nameFold(wanted)) !== undefined;
+    return send(res, 200, { taken });
+  }
   const credMatch = /^\/api\/farm\/([^/]+)\/(password|unlock)$/.exec(path);
   if (credMatch && req.method === 'POST') {
     const id = credMatch[1];
@@ -101,6 +119,14 @@ async function api(req, res, path) {
     const existing = await farms.load(id);
     const save = validateSave(body, { existingName: existing?.profile?.name });
     if (!save) return send(res, 400, { error: 'that save does not look right' });
+    // No two farmers share a name. A profile claiming a name another
+    // farm owns is dropped at the door, the way any bad profile is,
+    // unless the name was already this farm's own before the registry.
+    if (save.profile) {
+      const folded = nameFold(save.profile.name);
+      const alreadyMine = typeof existing?.profile?.name === 'string' && nameFold(existing.profile.name) === folded;
+      if (!(await names.tryClaim(id, folded, alreadyMine))) delete save.profile;
+    }
     await farms.store(id, save);
     return send(res, 200, { ok: true });
   }
