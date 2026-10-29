@@ -3,14 +3,16 @@
 // rules of its own beyond buying seeds and moving produce into the box.
 import { G, farmId, useFarmId, saveGame, blockSaves, markStep, guideActive, setFarmPassword, unlockFarm } from './state';
 import { ITEMS, CROPS, TIRED_BELOW, GUIDE_STEP_IDS, FARMER_LOOKS, FLOWER_STALL, nameIsKind, nameIsTaken } from '../shared/rules.js';
+import { BUILDING, STORE_GOODS, FOOD, isOpen, hoursText, buyAtStore, eat, hadToday } from '../shared/town.js';
+import { NAMES } from './walker';
 import { drawToolIcon } from './world';
 
 const $ = (id: string) => document.getElementById(id)!;
-const PANELS = ['bagPanel', 'shopPanel', 'shipPanel', 'seedPop', 'sleepPanel', 'summaryPanel', 'settingsPanel', 'letterPanel', 'setupPanel', 'unlockPanel', 'stallPanel'];
+const PANELS = ['bagPanel', 'placePanel', 'shipPanel', 'seedPop', 'sleepPanel', 'summaryPanel', 'settingsPanel', 'letterPanel', 'setupPanel', 'unlockPanel', 'stallPanel'];
 
 /** The first steps guide: the card words and the hint line for each step. */
 const GUIDE_WORDS: Record<string, { label: string; hint: string }> = {
-  buy: { label: 'Buy a seed from the sack by the signpost', hint: 'First steps: tap the signpost, then buy a seed from the sack.' },
+  buy: { label: 'Buy a seed at the General Store in town', hint: 'First steps: follow the path east into town and tap the General Store.' },
   hoe: { label: 'Hoe a patch of grass inside the fence', hint: 'First steps: pick the Hoe below and tap grass inside the fence.' },
   plant: { label: 'Plant a seed on the tilled soil', hint: 'First steps: pick Seeds below and tap a patch of tilled soil.' },
   water: { label: 'Water it (the pond fills your can)', hint: 'First steps: pick the Can and tap your planted seed. The pond refills it.' },
@@ -156,7 +158,7 @@ export function refreshHud() {
   $('tired').style.opacity = s.energy < TIRED_BELOW ? '1' : '0';
   $('canN').textContent = String(s.can);
   const seed = ITEMS[G.selectedSeed];
-  $('seedName').textContent = seed ? seed.name.replace(' seeds', '') : 'Seeds';
+  $('seedName').textContent = G.selectedSeed === 'fertiliser' ? 'Fertiliser' : seed ? seed.name.replace(' seeds', '') : 'Seeds';
   $('seedN').textContent = String(s.inventory[G.selectedSeed] ?? 0);
   document.querySelectorAll('.tool').forEach((b) => {
     b.classList.toggle('sel', (b as HTMLElement).dataset.tool === G.selectedTool);
@@ -165,13 +167,13 @@ export function refreshHud() {
 }
 
 function ownedSeeds(): string[] {
-  return Object.keys(G.save.inventory).filter((k) => k.startsWith('seed_') && G.save.inventory[k] > 0);
+  return Object.keys(G.save.inventory).filter((k) => (k.startsWith('seed_') || k === 'fertiliser') && G.save.inventory[k] > 0);
 }
 
 function selectTool(tool: typeof G.selectedTool) {
   if (tool === 'seeds') {
     if (G.selectedTool === 'seeds') { openSeedPop(); return; }
-    if (!ownedSeeds().length) toast('No seeds in the bag. The sack by the signpost has more.');
+    if (!ownedSeeds().length) toast('No seeds in the bag. The General Store in town sells them.');
     else if (!ownedSeeds().includes(G.selectedSeed)) G.selectedSeed = ownedSeeds()[0];
   }
   G.selectedTool = tool;
@@ -212,38 +214,73 @@ export function openBag() {
   for (const [item, n] of entries) {
     const def = ITEMS[item];
     if (!def) continue;
-    const sub = def.sell ? `Sells for ${def.sell} coins in the shipping box` : 'Plant from the toolbar';
+    const sub = def.sell ? `Sells for ${def.sell} coins in the shipping box` : item === 'fertiliser' ? 'Spread it on tilled soil with the Seeds button' : 'Plant from the toolbar';
     list.appendChild(itemRow(`${def.name} × ${n}`, sub, []));
   }
   openPanel('bagPanel');
 }
 
-export function openShop() {
-  const list = $('shopList');
+const PLACE_ABOUT: Record<string, string> = {
+  store: 'Seeds, fertiliser and everything in between, kept by the twins.',
+  cafe: "Mrs. Tibbs's café. A meal here puts the spring back in your step.",
+  bakery: "Benji's bakery. The smell reaches the fountain.",
+  library: 'Shelves to the ceiling and a ladder on wheels.',
+  mayor: 'Brass plate on the door: B. PUDDLE, MAYOR. Knock loudly.',
+  clinic: 'Doctor Ines keeps the valley well.',
+  smithy: 'The forge glows behind the door. Old Fennick builds from the yard too.',
+  weaving: 'Every thread in the window was spun in the valley.',
+  teahouse: 'The pot is always warm.',
+  pottery: 'Jugs and bowls on every shelf, all made from river clay.',
+  cottage_rose: 'A cottage with roses round the door. Rosie, Marigold, Clementine and Wren live here.',
+  cottage_gull: 'A blue cottage by the river. Captain Gull, Theo, Ollie and Lottie live here.',
+};
+
+/** A building's door: its shop when open, or a sign saying when it opens.
+ *  Interiors come later; for now the people who work there stand out front. */
+export function openPlace(id: string) {
+  const b = BUILDING[id];
+  const s = G.save;
+  $('placeTitle').textContent = b.name;
+  const open = isOpen(id, s.minutes, s.day);
+  const keepers = b.keepers.map((k) => NAMES[k] ?? k);
+  const who = keepers.length ? ` ${keepers.join(' and ')} ${keepers.length > 1 ? 'work' : 'works'} here; tap them to chat.` : '';
+  $('placeAbout').textContent = `${PLACE_ABOUT[id] ?? ''}${who}`;
+  $('placeHours').textContent = b.home ? 'A home. Nobody answers the door to strangers just yet.' : `${open ? 'Open now. ' : 'Closed. '}${hoursText(id)}`;
+  $('placeHours').classList.toggle('closed', !open);
+  $('placeCoins').textContent = `You have ${s.coins} coins. Energy ${Math.floor(s.energy)}.`;
+  const list = $('placeList');
   list.innerHTML = '';
-  $('shopCoins').textContent = String(G.save.coins);
-  for (const crop of Object.values(CROPS)) {
-    const owned = G.save.inventory[crop.seed] ?? 0;
-    list.appendChild(itemRow(
-      crop.name,
-      `${crop.seedCost} coins a seed. Ripe in ${crop.days} watered nights${crop.regrow ? `, then again every ${crop.regrow}` : ''}. You have ${owned}.`,
-      [{
-        label: 'Buy', soft: true, disabled: G.save.coins < crop.seedCost,
-        fn: () => {
-          if (G.save.coins < crop.seedCost) return;
-          G.save.coins -= crop.seedCost;
-          G.save.inventory[crop.seed] = (G.save.inventory[crop.seed] ?? 0) + 1;
-          markStep('buy');
-          toast(`Bought a ${crop.name.toLowerCase()} seed for ${crop.seedCost} coins. You have ${G.save.coins} coins.`);
-          if (!ownedSeeds().includes(G.selectedSeed)) G.selectedSeed = crop.seed;
-          openShop();
-          refreshHud();
-          void saveGame();
-        },
-      }],
-    ));
+  const after = (r: { ok: boolean; msg: string }) => {
+    toast(r.msg);
+    if (r.ok) { refreshHud(); void saveGame(); }
+    openPlace(id);
+  };
+  if (open && id === 'store') {
+    for (const crop of Object.values(CROPS)) {
+      const owned = s.inventory[crop.seed] ?? 0;
+      list.appendChild(itemRow(`${crop.name} seeds`,
+        `${crop.seedCost} coins. Ripe in ${crop.days} watered nights${crop.regrow ? `, then again every ${crop.regrow}` : ''}. You have ${owned}.`,
+        [{ label: 'Buy', soft: true, disabled: s.coins < crop.seedCost, fn: () => {
+          const r = buyAtStore(G.save, crop.seed);
+          if (r.ok) { markStep('buy'); if (!ownedSeeds().includes(G.selectedSeed)) G.selectedSeed = crop.seed; }
+          after(r);
+        } }]));
+    }
+    for (const g of STORE_GOODS) {
+      const have = g.id === 'big_can' ? (s.bigCan ? 'You have it.' : '') : `You have ${s.inventory[g.id] ?? 0}.`;
+      list.appendChild(itemRow(g.name, `${g.price} coins. ${g.about} ${have}`,
+        [{ label: 'Buy', soft: true, disabled: s.coins < g.price || (g.id === 'big_can' && !!s.bigCan), fn: () => after(buyAtStore(G.save, g.id)) }]));
+    }
   }
-  openPanel('shopPanel');
+  if (open && (id === 'cafe' || id === 'bakery')) {
+    for (const [key, f] of Object.entries(FOOD)) {
+      if (f.place !== id) continue;
+      const had = f.daily && hadToday(s, key);
+      list.appendChild(itemRow(f.name, `${f.price} coins. Energy up ${f.energy}.${f.daily ? had ? ' Had today.' : ' Once a day.' : ''}`,
+        [{ label: 'Eat', soft: true, disabled: had || s.coins < f.price, fn: () => after(eat(G.save, key)) }]));
+    }
+  }
+  openPanel('placePanel');
 }
 
 export function openShip() {
@@ -302,7 +339,7 @@ export function openSeedPop() {
   const list = $('seedList');
   list.innerHTML = '';
   const seeds = ownedSeeds();
-  if (!seeds.length) list.appendChild(emptyLine('No seeds in the bag. The sack by the signpost has more.'));
+  if (!seeds.length) list.appendChild(emptyLine('No seeds in the bag. The General Store in town sells them.'));
   for (const seed of seeds) {
     list.appendChild(itemRow(ITEMS[seed].name, `You have ${G.save.inventory[seed]}`, [{
       label: G.selectedSeed === seed ? 'In hand' : 'Take', soft: true,

@@ -176,6 +176,16 @@ export function drawSoil(wet: boolean): HTMLCanvasElement {
   return cv;
 }
 
+/** Fertiliser spread on soil: pale flecks over the tilled earth. */
+export function drawFertiliser(): HTMLCanvasElement {
+  const cv = document.createElement('canvas');
+  cv.width = T; cv.height = T;
+  const c = cv.getContext('2d')!;
+  const r = rng(77);
+  for (let k = 0; k < 22; k++) px(c, 3 + Math.floor(r() * 26), 3 + Math.floor(r() * 26), 2, 1, k % 3 ? '#e9dcc0' : '#c9b6f2');
+  return cv;
+}
+
 const LEAF = '#5fae4a', LEAF_LIGHT = '#9be07a', STEM = '#4c8a3d';
 
 /** A crop at one growth stage: 0 to 3 growing leaf clusters, 4 is ripe and shows itself. */

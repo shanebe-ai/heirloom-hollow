@@ -35,6 +35,7 @@ export const ITEMS = {
   seed_strawberry: { name: 'Strawberry seeds', plural: 'strawberry seeds', buy: CROPS.strawberry.seedCost, crop: 'strawberry' },
   seed_potato: { name: 'Potato seeds', plural: 'potato seeds', buy: CROPS.potato.seedCost, crop: 'potato' },
   seed_tulip: { name: 'Pink tulip seeds', plural: 'pink tulip seeds', buy: CROPS.tulip.seedCost, crop: 'tulip' },
+  fertiliser: { name: 'Basic fertiliser', plural: 'basic fertiliser', buy: 50 },
 };
 
 /** A brand new farm: Spring 1 of year 1, 500 coins, 10 turnip seeds, a full can,
@@ -131,7 +132,9 @@ export function advanceNight(save) {
       if (seasonChanged && !CROPS[tile.crop].seasons.includes(save.season)) {
         tile.dead = true;
       } else if (tile.watered) {
-        tile.age = (tile.age ?? 0) + 1;
+        // Fertiliser gives one extra stage on the first watered night, then it is spent.
+        tile.age = (tile.age ?? 0) + (tile.fert ? 2 : 1);
+        delete tile.fert;
       }
     }
     tile.watered = false;

@@ -6,6 +6,7 @@ export interface Tile {
   age?: number;
   watered?: boolean;
   dead?: boolean;
+  fert?: boolean;
 }
 
 export interface Save {
@@ -20,7 +21,9 @@ export interface Save {
   inventory: Record<string, number>;
   shipping: Record<string, number>;
   tiles: Record<string, Tile>;
-  player: { x: number; y: number; scene: 'farm' | 'house' };
+  player: { x: number; y: number; scene: 'farm' | 'house' | 'town' };
+  bigCan?: boolean;
+  meals?: { stamp: string; had: string[] };
   chatMemory?: Record<string, { from: string; text: string }[]>;
   guide?: { seen: boolean; off: boolean; done: string[] };
   profile?: { name: string; gender: 'girl' | 'boy'; look?: string; accessory?: string };

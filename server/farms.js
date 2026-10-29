@@ -34,7 +34,7 @@ export function validateSave(body, opts = {}) {
   if (body.version !== 1) return null;
   if (!num(body.day, 1, 14) || !num(body.season, 0, 3) || !num(body.year, 1, 9999)) return null;
   if (!num(body.minutes, 0, 26 * 60) || !num(body.coins, 0, 100000000)) return null;
-  if (!num(body.energy, 0, 100) || !num(body.can, 0, 20)) return null;
+  if (!num(body.energy, 0, 100) || !num(body.can, 0, body.bigCan === true ? 40 : 20)) return null;
   const inventory = counts(body.inventory);
   const shipping = counts(body.shipping);
   if (!inventory || !shipping) return null;
@@ -61,11 +61,14 @@ export function validateSave(body, opts = {}) {
       if (typeof t.dead !== 'boolean') return null;
       tile.dead = t.dead;
     }
+    if (t.fert === true) tile.fert = true;
     tiles[key] = tile;
   }
 
   const p = body.player;
-  if (!p || !num(p.x, 0, 29) || !num(p.y, 0, 21) || (p.scene !== 'farm' && p.scene !== 'house')) return null;
+  if (!p || !['farm', 'house', 'town'].includes(p.scene)) return null;
+  // The town is a bigger map than the farm.
+  if (!num(p.x, 0, p.scene === 'town' ? 39 : 29) || !num(p.y, 0, p.scene === 'town' ? 29 : 21)) return null;
 
   const save = {
     version: 1,
@@ -81,6 +84,12 @@ export function validateSave(body, opts = {}) {
     tiles,
     player: { x: Math.floor(p.x), y: Math.floor(p.y), scene: p.scene },
   };
+  if (body.bigCan === true) save.bigCan = true;
+  // Today's meals, so the café's once a day rule survives a reload.
+  const meals = body.meals;
+  if (meals && typeof meals === 'object' && typeof meals.stamp === 'string' && /^\d{1,4}-\d-\d{1,2}$/.test(meals.stamp) && Array.isArray(meals.had)) {
+    save.meals = { stamp: meals.stamp, had: [...new Set(meals.had.filter((f) => ['tea', 'pie', 'bread'].includes(f)))] };
+  }
 
   // The farmer's name and who they play as ride along when they are the
   // right shape. Names are short, plain, and safe to show anywhere.

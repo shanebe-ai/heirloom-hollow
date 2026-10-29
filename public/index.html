@@ -86,6 +86,8 @@
     .panel .note { font-size: 16px; opacity: .8; margin: 8px 0 0; line-height: 1.35; }
     .panel .balance { font-size: 17px; font-weight: 700; margin: 0 0 8px; }
     #letterPanel .note { font-size: 17px; opacity: 1; }
+    #placeHours { opacity: 1; font-weight: 600; color: #3f7a3a; }
+    #placeHours.closed { color: #b0413e; }
     .flabel { display: block; font-weight: 700; font-size: 15px; margin: 10px 0 2px; }
     .tin { width: 100%; box-sizing: border-box; font: 16px 'Nunito', sans-serif; color: var(--ink);
       background: #fff; border: 3px solid var(--ink); border-radius: 8px; padding: 7px 8px; margin: 2px 0 4px; }
@@ -176,12 +178,13 @@
     <div id="bagList"></div>
     <p class="note">Produce earns its keep in the wooden shipping box by the farmhouse. Seeds plant from the toolbar.</p>
   </div>
-  <div class="panel" id="shopPanel">
+  <div class="panel" id="placePanel">
     <button class="x" data-close aria-label="Close">×</button>
-    <h2>The seed sack</h2>
-    <p class="balance">Your coins: <span id="shopCoins">500</span></p>
-    <div id="shopList"></div>
-    <p class="note">The sack hangs by the signpost until Pip and Poppy open their shop.</p>
+    <h2 id="placeTitle">Hollow Square</h2>
+    <p class="note" id="placeHours"></p>
+    <p class="note" id="placeAbout"></p>
+    <div class="balance" id="placeCoins"></div>
+    <div id="placeList"></div>
   </div>
   <div class="panel" id="shipPanel">
     <button class="x" data-close aria-label="Close">×</button>
@@ -211,7 +214,7 @@
   <div class="panel" id="letterPanel">
     <h2>A letter from Grandma Hazel</h2>
     <p class="note" id="letterGreeting">Dear Rosa,</p>
-    <p class="note">The farm is yours now, and it will teach you as you go. Start at the signpost by the gate: the sack hanging there sells seeds. Hoe a patch of grass inside the fence, plant your seeds, and water them every day. When your can runs dry, the pond fills it again.</p>
+    <p class="note">The farm is yours now, and it will teach you as you go. Follow the path east past the signpost into Hollow Square, where Pip and Poppy's General Store sells seeds. Hoe a patch of grass inside the fence, plant your seeds, and water them every day. When your can runs dry, the pond fills it again.</p>
     <p class="note">Sleep in the farmhouse bed when the day is done. Crops grow while you rest. When a crop is ripe and full, pick it with your hand and put it in the wooden box by the house. It ships in the night and the coins are yours by morning.</p>
     <p class="note">Be kind to the neighbours who stop by. They were fond of this place long before us.</p>
     <p class="note">All my love, Grandma Hazel</p>

@@ -1,6 +1,8 @@
 // Talking to townsfolk: builds the prompt, asks the AI chain, checks the reply, and falls back to
 // written lines when the AI is down. Code decides, AI talks: it only ever returns a line and a face.
 import { CHARACTERS, WORLD } from './characters.js';
+import { whereIs } from '../shared/schedules.js';
+import { SEASONS } from '../shared/rules.js';
 
 const MAX_SAID = 200;
 const MAX_LINE = 240;
@@ -15,6 +17,21 @@ export function clean(text, max) {
   return String(text ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
+/** Where the character is and what they are doing, from their schedule. The
+ *  game works it out from the clock; the browser only says what time it is. */
+export function placeLine(who, ctx) {
+  const minutes = Number(ctx?.minutes);
+  const day = Math.min(14, Math.max(1, Math.floor(Number(ctx?.day) || 1)));
+  const season = Math.max(0, SEASONS.indexOf(String(ctx?.season ?? 'Spring')));
+  const year = Math.max(1, Math.floor(Number(ctx?.year) || 1));
+  if (!Number.isFinite(minutes)) return "You are out and about when the farmer walks up to you.";
+  const w = whereIs(who, Math.max(0, Math.min(26 * 60, minutes)), day, season, year);
+  if (!w || w.scene === 'home') return 'The farmer has caught you on your way home.';
+  const place = w.scene === 'farm' ? "Hazel's farm" : 'Hollow Square, the town';
+  const first = CHARACTERS[who].name.replace(/^(Mayor|Doctor|Mrs\.|Old|Captain) /, '').split(' ')[0];
+  return `Where you are: ${place}. What you are doing, as others would put it: ${first} is ${w.doing}. The farmer walks up to you.`;
+}
+
 /** The prompt for one exchange. The history comes from the player's browser, so it is trimmed and fenced. */
 export function buildPrompt(who, said, history, ctx) {
   const c = CHARACTERS[who];
@@ -24,7 +41,7 @@ export function buildPrompt(who, said, history, ctx) {
     WORLD,
     `You are ${c.name}, who ${c.who}`,
     `How you talk: ${c.voice}`,
-    `Right now: ${clean(ctx?.time, 40) || 'morning'} on ${clean(ctx?.season, 20) || 'Spring'} day ${Number(ctx?.day) || 1}. You are visiting the farmer on Hazel's farm.`,
+    `Right now: ${clean(ctx?.time, 40) || 'morning'} on ${clean(ctx?.season, 20) || 'Spring'} day ${Number(ctx?.day) || 1}. ${placeLine(who, ctx)}`,
     'Rules: stay in character always. Reply with one or two short sentences, under 35 words, spoken out loud by you. No actions in asterisks, no stage directions, no emoji.',
     'Keep it warm and suitable for young teens: no violence, romance beyond gentle shyness, swearing or anything scary. Never mention being an AI. If the farmer says something rude or odd, react the way your character would and steer back to village life.',
     'You cannot give items, money or promises; you only talk.',
