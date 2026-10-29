@@ -77,6 +77,37 @@ export function farmId(): string {
 }
 
 /** Point this browser at a different farm code (typed in on another device, say). */
+/** Log in with the farmer's name and password: the server finds the farm
+ *  and gives this device a token for it. False when they do not match. */
+export async function logIn(name: string, password: string): Promise<boolean> {
+  try {
+    const res = await fetch('api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, password }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (!data.farmId || !data.token) return false;
+    // From here this page must never save: it holds an empty farm, and
+    // the farm id is about to point at the real one.
+    savesBlocked = true;
+    useFarmId(data.farmId);
+    storeToken(data.token);
+    return true;
+  } catch { return false; }
+}
+
+/** Log out on this device: forget the farm and its token, so the next visit
+ *  starts at the move in screen with its log in button. */
+export function logOut() {
+  try {
+    localStorage.removeItem(TOKEN_PREFIX + farmId());
+    localStorage.removeItem(ID_KEY);
+    localStorage.removeItem(MEMORY_KEY);
+  } catch { /* private mode */ }
+}
+
 export function useFarmId(id: string) {
   G.farmId = id;
   try { localStorage.setItem(ID_KEY, id); } catch { /* private mode */ }

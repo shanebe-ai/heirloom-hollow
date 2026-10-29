@@ -227,7 +227,8 @@
   </div>
   <div class="panel" id="setupPanel">
     <h2>Welcome to the farm</h2>
-    <p class="note">This farm is yours now. First, tell us who is moving in.</p>
+    <div class="bigrow"><button class="pbtn" id="toLogin">I already have a farmer: log in</button></div>
+    <p class="note">New here? This farm is yours now. First, tell us who is moving in.</p>
     <label class="flabel" for="setupName">Your farmer's name</label>
     <input class="tin" id="setupName" maxlength="16" autocomplete="off" value="Rosa">
     <div class="pickrow">
@@ -248,6 +249,17 @@
     <input class="tin" id="setupPw2" type="password" maxlength="64" autocomplete="new-password">
     <p class="note">The password opens your farm on a new phone, together with your farm code. Pick one you will remember. If it is forgotten, there is no way back in on a new phone.</p>
     <div class="bigrow"><button class="pbtn soft" id="setupGo">Move in</button></div>
+  </div>
+  <div class="panel" id="loginPanel">
+    <h2>Log in</h2>
+    <p class="note">Your farmer's name and password bring your farm to this phone.</p>
+    <label class="flabel" for="loginName">Your farmer's name</label>
+    <input class="tin" id="loginName" maxlength="16" autocomplete="username">
+    <label class="flabel" for="loginPw">Password</label>
+    <input class="tin" id="loginPw" type="password" maxlength="64" autocomplete="current-password">
+    <p class="note" id="loginMsg"></p>
+    <div class="bigrow"><button class="pbtn soft" id="loginGo">Log in</button></div>
+    <div class="bigrow"><button class="pbtn" id="toSetup">I am new: move in</button></div>
   </div>
   <div class="panel" id="stallPanel">
     <button class="x" data-close aria-label="Close">×</button>
@@ -272,6 +284,8 @@
     <input id="farmCodeInput" placeholder="Paste a farm code here" autocomplete="off">
     <div class="bigrow"><button class="pbtn soft" id="useCode">Use this code</button></div>
     <div class="bigrow"><button class="pbtn" id="letterBtn">Read Hazel's letter</button></div>
+    <div class="bigrow"><button class="pbtn" id="logoutBtn">Log out of this phone</button></div>
+    <p class="note">Logging out keeps your farm saved. Log back in with your farmer's name and password.</p>
     <p class="note">Switching codes loads that farm and leaves this one saved as it is.</p>
   </div>
   <div id="fade"></div>

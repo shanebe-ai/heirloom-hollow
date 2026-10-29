@@ -19,6 +19,7 @@ const names = new NameRegistry(join(fileURLToPath(new URL('.', import.meta.url))
 // Password guesses get six tries a minute per farm from one address:
 // plenty for a farmer who mistypes, a wall for anyone fishing.
 const unlockLimits = new Limits(6, Number.MAX_SAFE_INTEGER);
+const loginLimits = new Limits(6, Number.MAX_SAFE_INTEGER);
 // Saves are cheap but not free: a player autosaves every couple of minutes,
 // so 30 a minute each is generous headroom that still stops a flood.
 const saveLimits = new Limits(30, Number.MAX_SAFE_INTEGER);
@@ -74,6 +75,23 @@ async function api(req, res, path) {
     await names.ready;
     const taken = nameIsTaken(wanted) || names.ownerOf(nameFold(wanted)) !== undefined;
     return send(res, 200, { taken });
+  }
+  // Logging in on any device with the farmer's name and password: the
+  // registry finds the farm, the password earns this device a token.
+  // A wrong name and a wrong password get the same answer.
+  if (path === '/api/login' && req.method === 'POST') {
+    if (!loginLimits.allow(req.socket.remoteAddress || '?')) return send(res, 429, { error: 'too many tries, rest a minute' });
+    let body;
+    try { body = JSON.parse(await readBody(req, 2000)); } catch { return send(res, 400, { error: 'bad request' }); }
+    const name = typeof body?.name === 'string' ? body.name.trim().slice(0, 16) : '';
+    const password = typeof body?.password === 'string' ? body.password.slice(0, 64) : '';
+    await names.ready;
+    const id = name ? names.ownerOf(name) : undefined;
+    const cred = id ? await creds.load(id) : null;
+    if (!id || !cred || !(await passwordMatches(password, cred))) return send(res, 401, { error: 'name and password do not match' });
+    const token = newDeviceToken();
+    await creds.addDevice(id, cred, token);
+    return send(res, 200, { farmId: id, token });
   }
   const credMatch = /^\/api\/farm\/([^/]+)\/(password|unlock)$/.exec(path);
   if (credMatch && req.method === 'POST') {

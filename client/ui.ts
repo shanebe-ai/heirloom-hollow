@@ -1,14 +1,14 @@
 // The HTML layer over the canvas: the toolbar, the HUD chips and every panel.
 // It reads and writes the one game state in state.ts and never runs game
 // rules of its own beyond buying seeds and moving produce into the box.
-import { G, farmId, useFarmId, saveGame, blockSaves, markStep, guideActive, setFarmPassword, unlockFarm } from './state';
+import { G, farmId, useFarmId, saveGame, blockSaves, markStep, guideActive, setFarmPassword, unlockFarm, logIn, logOut } from './state';
 import { ITEMS, CROPS, TIRED_BELOW, GUIDE_STEP_IDS, FARMER_LOOKS, FLOWER_STALL, nameIsKind, nameIsTaken } from '../shared/rules.js';
 import { BUILDING, STORE_GOODS, FOOD, isOpen, hoursText, buyAtStore, eat, hadToday } from '../shared/town.js';
 import { NAMES } from './walker';
 import { drawToolIcon } from './world';
 
 const $ = (id: string) => document.getElementById(id)!;
-const PANELS = ['bagPanel', 'placePanel', 'shipPanel', 'seedPop', 'sleepPanel', 'summaryPanel', 'settingsPanel', 'letterPanel', 'setupPanel', 'unlockPanel', 'stallPanel', 'infoPanel'];
+const PANELS = ['bagPanel', 'placePanel', 'shipPanel', 'seedPop', 'sleepPanel', 'summaryPanel', 'settingsPanel', 'letterPanel', 'setupPanel', 'unlockPanel', 'stallPanel', 'infoPanel', 'loginPanel'];
 
 /** The first steps guide: the card words and the hint line for each step. */
 const GUIDE_WORDS: Record<string, { label: string; hint: string }> = {
@@ -407,6 +407,22 @@ export function initUI() {
   });
   $('letterBtn').addEventListener('click', openLetter);
   $('infoOk').addEventListener('click', closePanels);
+  $('toLogin').addEventListener('click', () => { $('loginMsg').textContent = ''; openPanel('loginPanel'); });
+  $('toSetup').addEventListener('click', () => openPanel('setupPanel'));
+  $('loginGo').addEventListener('click', async () => {
+    const name = ($('loginName') as HTMLInputElement).value.trim();
+    const pw = ($('loginPw') as HTMLInputElement).value;
+    if (!name || !pw) { $('loginMsg').textContent = 'Type your farmer\'s name and password.'; return; }
+    if (await logIn(name, pw)) { location.reload(); return; }
+    $('loginMsg').textContent = 'That name and password do not match. Try again.';
+    ($('loginPw') as HTMLInputElement).value = '';
+  });
+  $('logoutBtn').addEventListener('click', async () => {
+    await saveGame();
+    blockSaves();
+    logOut();
+    location.reload();
+  });
   for (const l of FARMER_LOOKS) $(`pick-${l.key}`).addEventListener('click', () => pickLook(l.key));
   for (const a of ['backpack', 'purse', 'none']) $(`pick-acc-${a}`).addEventListener('click', () => pickAcc(a));
   $('stallChat').addEventListener('click', () => {
