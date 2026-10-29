@@ -150,7 +150,15 @@ createServer(async (req, res) => {
     const file = join(ROOT, path);
     if (!file.startsWith(ROOT)) throw new Error('outside');
     if (!(await stat(file)).isFile()) throw new Error('not a file');
-    const body = await readFile(file);
+    let body = await readFile(file);
+    if (extname(file) === '.html') {
+      // The page is never cached, and it asks for the game code by the time it was
+      // built, so a phone can never mix a new page with old code after a deploy.
+      const built = (await stat(join(ROOT, 'build', 'app.js')).catch(() => null))?.mtimeMs ?? 0;
+      body = Buffer.from(body.toString('utf8').replace('src="build/app.js"', `src="build/app.js?v=${Math.floor(built)}"`));
+      res.writeHead(200, { 'Content-Type': TYPES['.html'], 'Cache-Control': 'no-cache' });
+      return res.end(body);
+    }
     // Art and code are rebuilt on every deploy, so a short cache keeps phones fresh.
     res.writeHead(200, { 'Content-Type': TYPES[extname(file)] || 'application/octet-stream', 'Cache-Control': 'public, max-age=300' });
     res.end(body);
