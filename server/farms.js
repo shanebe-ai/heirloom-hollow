@@ -66,7 +66,7 @@ export function validateSave(body, opts = {}) {
   }
 
   const p = body.player;
-  if (!p || !['farm', 'house', 'town'].includes(p.scene)) return null;
+  if (!p || !['farm', 'house', 'town', 'ranch'].includes(p.scene)) return null;
   // The town is a bigger map than the farm.
   if (!num(p.x, 0, p.scene === 'town' ? 39 : 29) || !num(p.y, 0, p.scene === 'town' ? 29 : 21)) return null;
 
@@ -88,7 +88,7 @@ export function validateSave(body, opts = {}) {
   // Today's meals, so the café's once a day rule survives a reload.
   const meals = body.meals;
   if (meals && typeof meals === 'object' && typeof meals.stamp === 'string' && /^\d{1,4}-\d-\d{1,2}$/.test(meals.stamp) && Array.isArray(meals.had)) {
-    save.meals = { stamp: meals.stamp, had: [...new Set(meals.had.filter((f) => ['tea', 'pie', 'bread'].includes(f)))] };
+    save.meals = { stamp: meals.stamp, had: [...new Set(meals.had.filter((f) => ['tea', 'pie', 'bread', 'honey'].includes(f)))] };
   }
 
   // The farmer's name and who they play as ride along when they are the

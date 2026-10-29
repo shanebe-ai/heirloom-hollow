@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import { newSave, advanceNight } from '../shared/rules.js';
 import {
-  BUILDINGS, SPOTS, TOWN_COLS, TOWN_ROWS, WEST_GATE, EAST_GATE, townLayout, isOpen, hoursText, eat, buyAtStore, canCapacity, hadToday,
+  BUILDINGS, BUILDING, SPOTS, TOWN_COLS, TOWN_ROWS, WEST_GATE, EAST_GATE, townLayout, RANCH_COLS, RANCH_ROWS, RANCH_GATE, RANCH_BUILDINGS, ranchLayout, isOpen, hoursText, eat, buyAtStore, canCapacity, hadToday,
 } from '../shared/town.js';
 import { SCHEDULES, PEOPLE, whereIs, farmVisits, homeOf } from '../shared/schedules.js';
 import { CHARACTERS } from '../server/characters.js';
@@ -39,7 +39,9 @@ test('schedules: who is where at a given time', () => {
   assert.equal(whereIs('marigold', at(9), 2).scene, 'farm');
   assert.equal(whereIs('marigold', at(19), 2).scene, 'home');
   assert.equal(whereIs('ines', at(10, 30), 7).at, 'bench_s', 'the clinic is shut on rest days');
-  assert.equal(homeOf('june'), 'east');
+  assert.equal(homeOf('june'), 'ranch_house');
+  assert.equal(whereIs('june', at(7), 2).scene, 'ranch');
+  assert.equal(whereIs('hugo', at(15), 2).at, 'honey_shed');
 });
 
 test('Ollie walks his post round, a new door every twenty minutes', () => {
@@ -84,12 +86,27 @@ test('every schedule stop names a real spot, and every town spot is open ground 
   }
   for (const b of BUILDINGS) assert.ok(seen.has(`${b.front.x},${b.front.y}`), `${b.id} door can be reached`);
   assert.ok(seen.has(`${EAST_GATE.x},${EAST_GATE.y}`), 'the ranch road');
+  // The ranch: every spot and door reachable from the road in from town.
+  const R = ranchLayout();
+  const rs = new Set([`${RANCH_GATE.x},${RANCH_GATE.y}`]);
+  const rq = [[RANCH_GATE.x, RANCH_GATE.y]];
+  while (rq.length) {
+    const [x, y] = rq.shift();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= RANCH_COLS || ny >= RANCH_ROWS || R.blocked[ny][nx] || rs.has(`${nx},${ny}`)) continue;
+      rs.add(`${nx},${ny}`);
+      rq.push([nx, ny]);
+    }
+  }
+  for (const [name, sp] of Object.entries(SPOTS)) if (sp.scene === 'ranch') assert.ok(rs.has(`${sp.x},${sp.y}`), `${name} on the ranch`);
+  for (const b of RANCH_BUILDINGS) assert.ok(rs.has(`${b.front.x},${b.front.y}`), `${b.id} door`);
   for (const [who, sched] of Object.entries(SCHEDULES)) {
     for (const s of sched.stops) {
       if (s.at === 'home') continue;
       for (const spot of s.route ?? [s.at]) assert.ok(SPOTS[spot], `${who}: ${spot}`);
     }
-    assert.ok(sched.home === 'east' || BUILDINGS.some((b) => b.id === sched.home), `${who} home`);
+    assert.ok(BUILDING[sched.home], `${who} home`);
   }
 });
 
@@ -189,6 +206,7 @@ test('saves carry the town, the bigger can, fertiliser and meals; a can over 20 
   assert.equal(validateSave({ ...s, bigCan: false }), null, 'a 40 can without the big can');
   assert.equal(validateSave({ ...s, player: { x: 35, y: 20, scene: 'farm' } }), null, 'the farm is smaller');
   assert.equal(validateSave({ ...s, player: { x: 1, y: 1, scene: 'moon' } }), null);
+  assert.deepEqual(validateSave({ ...s, player: { x: 12, y: 11, scene: 'ranch' } }).player, { x: 12, y: 11, scene: 'ranch' });
 });
 
 test('talk context comes from the schedule, worked out by the game from the clock', () => {

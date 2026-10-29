@@ -4,10 +4,10 @@ import type { Save } from './rules.js';
 export interface Building {
   id: string; name: string; keepers: string[]; x: number; y: number; w: number; h: number; row: 'north' | 'south';
   hours?: [string, string]; rest?: boolean; home?: boolean; roof: string; wall: string;
-  door: { x: number; y: number }; front: { x: number; y: number };
+  door: { x: number; y: number }; front: { x: number; y: number }; scene: 'town' | 'ranch';
 }
-export type TownGround = 'grass' | 'path' | 'cobble' | 'water' | 'bridge' | 'dock';
-export interface Spot { scene: 'town' | 'farm'; x: number; y: number }
+export type TownGround = 'grass' | 'path' | 'cobble' | 'water' | 'bridge' | 'dock' | 'mud' | 'flowers';
+export interface Spot { scene: 'town' | 'farm' | 'ranch'; x: number; y: number }
 export interface Result { ok: boolean; msg: string }
 
 export declare const TOWN_COLS: number;
@@ -40,3 +40,11 @@ export declare function hadToday(save: Save, food: string): boolean;
 export declare function eat(save: Save, food: string): Result;
 export declare function buyAtStore(save: Save, id: string): Result;
 export declare function canCapacity(save: Save): number;
+export declare const RANCH_COLS: number;
+export declare const RANCH_ROWS: number;
+export declare const RANCH_ROAD: number;
+export declare const RANCH_GATE: { x: number; y: number };
+export declare const PADDOCK: { x: number; y: number; w: number; h: number; gate: number };
+export declare const HIVES: { x: number; y: number }[];
+export declare const RANCH_BUILDINGS: Building[];
+export declare function ranchLayout(): { ground: TownGround[][]; blocked: boolean[][]; trees: { x: number; y: number }[]; fences: { x: number; y: number }[] };

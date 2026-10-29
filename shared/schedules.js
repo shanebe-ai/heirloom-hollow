@@ -3,7 +3,7 @@
 // something the AI is told about. Before their first stop and after their
 // last one ends they are at home, out of sight. Code decides all of this.
 
-import { SPOTS, isRestDay } from './town.js';
+import { SPOTS, BUILDING, isRestDay } from './town.js';
 
 const hm = (s) => {
   const [h, m] = String(s).split(':').map(Number);
@@ -14,8 +14,8 @@ const hm = (s) => {
 export const POST_ROUND = ['store', 'cafe', 'bakery', 'library', 'mayor', 'clinic', 'pottery', 'teahouse', 'weaving', 'smithy'];
 
 /**
- * Homes are a building (they walk to its door and go in) or 'east', the ranch
- * road out of town for those who live outside it. `rest: true` stops happen
+ * Homes are a building (they walk to its door and go in): in town, or out at
+ * June's ranch for June, Jed and Hugo. `rest: true` stops happen
  * only on rest days, `rest: false` only on working days. A stop with `at: 'home'`
  * sends them home early.
  */
@@ -44,10 +44,13 @@ export const SCHEDULES = {
     { from: '13:00', at: 'riverbank_w', doing: 'fishing from the riverbank' },
     { from: '20:00', at: 'home' },
   ] },
-  june: { home: 'east', stops: [
+  june: { home: 'ranch_house', stops: [
+    { from: '6:00', at: 'ranch_paddock', doing: 'feeding the animals at her ranch' },
     { from: '11:00', at: 'bakery_left', doing: 'buying bread on her way through town' },
     { from: '12:30', at: 'noticeboard', doing: 'reading the noticeboard' },
-    { from: '15:00', at: 'home' },
+    { from: '14:00', at: 'ranch_paddock', doing: 'mending the paddock fence at her ranch' },
+    { from: '18:00', at: 'ranch_porch', doing: 'sitting on the porch of her ranch house with her dog' },
+    { from: '20:00', at: 'home' },
   ] },
   silas: { home: 'cafe', stops: [
     { from: '11:00', at: 'fountain_e', doing: 'playing his fiddle by the fountain' },
@@ -144,16 +147,21 @@ export const SCHEDULES = {
     { from: '17:00', at: 'bridge', doing: 'sketching the river from the bridge' },
     { from: '19:00', at: 'home' },
   ] },
-  hugo: { home: 'east', stops: [
-    { from: '9:00', at: 'flowerbeds', doing: 'checking the flower beds for his bees' },
+  hugo: { home: 'honey_shed', stops: [
+    { from: '7:00', at: 'ranch_hives', doing: 'tending his beehives out at the ranch' },
+    { from: '9:30', at: 'flowerbeds', doing: 'checking the flower beds in the square for his bees' },
     { from: '12:00', at: 'bakery', doing: 'selling honey to the bakery' },
-    { from: '14:00', at: 'home' },
+    { from: '14:00', at: 'honey_shed', doing: 'jarring honey outside his honey shed at the ranch' },
+    { from: '18:00', at: 'home' },
   ] },
-  jed: { home: 'east', stops: [
+  jed: { home: 'ranch_house', stops: [
+    { from: '6:00', at: 'ranch_barn', doing: 'mucking out the barn at the ranch' },
     { from: '10:00', at: 'store_left', doing: 'picking up supplies for the ranch', rest: false },
     { from: '10:00', at: 'fountain_w', doing: 'loafing by the fountain on his day off', rest: true },
     { from: '12:00', at: 'cafe', doing: 'eating lunch at the café' },
-    { from: '14:00', at: 'home' },
+    { from: '13:30', at: 'ranch_road', doing: 'fixing the ranch road' },
+    { from: '16:00', at: 'ranch_barn', doing: 'brushing down the horse in the barn' },
+    { from: '19:00', at: 'home' },
   ] },
   marigold: { home: 'cottage_rose', stops: [
     { from: '8:00', at: 'farm_stall', doing: "selling flowers at her stall on Hazel's farm" },
@@ -205,7 +213,15 @@ export function whereIs(who, minutes, day, season = 0, year = 1) {
   return { at: cur.at, doing: cur.doing, scene: SPOTS[cur.at]?.scene ?? 'town' };
 }
 
-/** Where on the map someone goes in to be home: a building door, or the east road. */
+/** The building someone goes into to be home. */
 export function homeOf(who) {
-  return SCHEDULES[who]?.home ?? 'east';
+  return SCHEDULES[who]?.home ?? 'cottage_rose';
 }
+
+/** Which map someone's home is on: the town, or June's ranch. */
+export function homeScene(who) {
+  return BUILDING[homeOf(who)]?.scene ?? 'town';
+}
+
+/** The maps in order from west to east, so people know which way to walk to get between them. */
+export const SCENE_ORDER = ['farm', 'town', 'ranch'];

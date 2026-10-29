@@ -240,6 +240,9 @@ const PLACE_ABOUT: Record<string, string> = {
   pottery: 'Jugs and bowls on every shelf, all made from river clay.',
   cottage_rose: 'A cottage with roses round the door. Rosie, Marigold, Clementine and Wren live here.',
   cottage_gull: 'A blue cottage by the river. Captain Gull, Theo, Ollie and Lottie live here.',
+  ranch_house: "June's ranch house. Muddy boots by the door and a dog asleep on the step. Jed lives here too.",
+  barn: 'Hay to the rafters, a horse called Biscuit, and Jed somewhere with a pitchfork.',
+  honey_shed: "Hugo's honey shed. Jars in rows, glowing in the light. He sells honey on toast at the door.",
 };
 
 /** A building's door: its shop when open, or a sign saying when it opens.
@@ -279,7 +282,7 @@ export function openPlace(id: string) {
         [{ label: 'Buy', soft: true, disabled: s.coins < g.price || (g.id === 'big_can' && !!s.bigCan), fn: () => after(buyAtStore(G.save, g.id)) }]));
     }
   }
-  if (open && (id === 'cafe' || id === 'bakery')) {
+  if (open) {
     for (const [key, f] of Object.entries(FOOD)) {
       if (f.place !== id) continue;
       const had = f.daily && hadToday(s, key);

@@ -7,8 +7,8 @@ import { T } from './world';
 import { G, saveGame, sleepNight, farmerKey, farmerPack, GAME_MIN_PER_MS, clockLabel } from './state';
 import { anyPanelOpen, closePanels, fade, openStall } from './ui';
 import { SEASONS, DAY_END, TIRED_BELOW } from '../shared/rules.js';
-import { SPOTS, BUILDING, WEST_GATE, EAST_GATE } from '../shared/town.js';
-import { PEOPLE, whereIs, homeOf } from '../shared/schedules.js';
+import { SPOTS, BUILDING } from '../shared/town.js';
+import { PEOPLE, whereIs, homeOf, homeScene, SCENE_ORDER } from '../shared/schedules.js';
 
 export type Dir = 'down' | 'left' | 'right' | 'up';
 export const DIRS: Dir[] = ['down', 'left', 'right', 'up'];
@@ -54,7 +54,9 @@ let active: Walker | null = null;
 let domWired = false;
 
 export abstract class Walker extends Phaser.Scene {
-  abstract readonly where: 'farm' | 'town';
+  abstract readonly where: 'farm' | 'town' | 'ranch';
+  /** Where people walk in and out of this map, towards the maps west and east of it. */
+  abstract gates(): { west?: Pt; east?: Pt };
   cols = 0;
   rows = 0;
   blocked: boolean[][] = [];
@@ -325,7 +327,7 @@ export abstract class Walker extends Phaser.Scene {
   }
 
   /** Leave for another scene with the fade the farmhouse door uses. */
-  goTo(scene: 'farm' | 'town' | 'house', at: Pt) {
+  goTo(scene: 'farm' | 'town' | 'ranch' | 'house', at: Pt) {
     if (this.busy) return;
     this.busy = true;
     if (this.talking) this.closeTalk();
@@ -342,11 +344,15 @@ export abstract class Walker extends Phaser.Scene {
   // ---- The townsfolk on their schedules ----
 
   /** The tile where someone enters or leaves this scene, given where they come from or go. */
-  gateFor(other: 'farm' | 'town' | 'home', who: string): Pt {
-    if (this.where === 'farm') return { x: this.cols - 1, y: 11 };
-    if (other === 'farm') return WEST_GATE;
-    const home = homeOf(who);
-    return home === 'east' ? EAST_GATE : BUILDING[home].front;
+  gateFor(other: 'farm' | 'town' | 'ranch' | 'home', who: string): Pt {
+    let dest = other;
+    if (dest === 'home') {
+      dest = homeScene(who);
+      if (dest === this.where) return BUILDING[homeOf(who)].front;
+    }
+    const g = this.gates();
+    const east = SCENE_ORDER.indexOf(dest as 'farm') > SCENE_ORDER.indexOf(this.where);
+    return (east ? g.east : g.west) ?? g.east ?? g.west!;
   }
 
   /** A free tile at or near a spot, not already someone else's goal. */
@@ -374,7 +380,7 @@ export abstract class Walker extends Phaser.Scene {
         if (p) { p.leaving = false; } else {
           // Arriving: at the spot when the scene opens, otherwise in through a gate or their door.
           const before = whereIs(key, s.minutes - 30, s.day, s.season, s.year)!;
-          const start = initial ? this.spotTile(w.at, key) : this.gateFor(before.scene === 'farm' ? 'farm' : 'home', key);
+          const start = initial ? this.spotTile(w.at, key) : this.gateFor(before.scene, key);
           p = this.spawn(key, start);
         }
         p.at = '';

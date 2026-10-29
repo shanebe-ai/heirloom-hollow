@@ -27,7 +27,7 @@ export function placeLine(who, ctx) {
   if (!Number.isFinite(minutes)) return "You are out and about when the farmer walks up to you.";
   const w = whereIs(who, Math.max(0, Math.min(26 * 60, minutes)), day, season, year);
   if (!w || w.scene === 'home') return 'The farmer has caught you on your way home.';
-  const place = w.scene === 'farm' ? "Hazel's farm" : 'Hollow Square, the town';
+  const place = w.scene === 'farm' ? "Hazel's farm" : w.scene === 'ranch' ? "June's ranch, along the road east of town" : 'Hollow Square, the town';
   const first = CHARACTERS[who].name.replace(/^(Mayor|Doctor|Mrs\.|Old|Captain) /, '').split(' ')[0];
   return `Where you are: ${place}. What you are doing, as others would put it: ${first} is ${w.doing}. The farmer walks up to you.`;
 }

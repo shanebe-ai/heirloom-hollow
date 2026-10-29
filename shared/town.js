@@ -50,10 +50,61 @@ export const BUILDINGS = [
   const y = b.row === 'north' ? NORTH_ROAD - 5 : SOUTH_ROAD - 5;
   const door = { x: b.x + Math.floor(b.w / 2), y: y + 4 };
   const road = b.row === 'north' ? NORTH_ROAD : SOUTH_ROAD;
-  return { ...b, y, h: 5, door, front: { x: door.x, y: road } };
+  return { ...b, scene: 'town', y, h: 5, door, front: { x: door.x, y: road } };
 });
 
-export const BUILDING = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
+/** June's ranch, east along the ranch road: its own small map. */
+export const RANCH_COLS = 30;
+export const RANCH_ROWS = 22;
+export const RANCH_ROAD = 11;
+export const RANCH_GATE = { x: 0, y: RANCH_ROAD };
+export const PADDOCK = { x: 15, y: 14, w: 12, h: 6, gate: 19 };
+export const HIVES = [{ x: 3, y: 15 }, { x: 5, y: 15 }, { x: 7, y: 15 }, { x: 4, y: 18 }, { x: 6, y: 18 }];
+export const RANCH_BUILDINGS = [
+  { id: 'ranch_house', name: "June's Ranch", keepers: ['june'], x: 3, w: 5, hours: ['7:00', '19:00'], roof: '#b85d55', wall: '#f6e6c6' },
+  { id: 'barn', name: 'Barn', keepers: ['jed'], x: 15, w: 7, hours: ['6:00', '20:00'], roof: '#a8473e', wall: '#c96a4a' },
+  { id: 'honey_shed', name: "Hugo's Honey", keepers: ['hugo'], x: 24, w: 4, hours: ['8:00', '16:00'], roof: '#e2bd86', wall: '#f7e3a8' },
+].map((b) => {
+  const y = RANCH_ROAD - 8;
+  const door = { x: b.x + Math.floor(b.w / 2), y: y + 4 };
+  return { ...b, row: 'north', scene: 'ranch', y, h: 5, door, front: { x: door.x, y: y + 5 } };
+});
+
+/** The ranch's ground and what blocks: the road, paths up to the doors, the paddock fence, the hives, trees. */
+export function ranchLayout() {
+  const ground = [], blocked = [];
+  for (let y = 0; y < RANCH_ROWS; y++) { ground.push(Array(RANCH_COLS).fill('grass')); blocked.push(Array(RANCH_COLS).fill(false)); }
+  for (let x = 0; x < RANCH_COLS - 2; x++) ground[RANCH_ROAD][x] = 'path';
+  for (const b of RANCH_BUILDINGS) {
+    for (let y = b.front.y; y < RANCH_ROAD; y++) ground[y][b.front.x] = 'path';
+    for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) blocked[y][x] = true;
+  }
+  for (let y = RANCH_ROAD + 1; y < PADDOCK.y; y++) ground[y][PADDOCK.gate] = 'path';
+  // The paddock: a fence all round with a gap at the gate, mud and hay inside.
+  const fences = [];
+  for (let x = PADDOCK.x - 1; x <= PADDOCK.x + PADDOCK.w; x++) {
+    if (x !== PADDOCK.gate) fences.push({ x, y: PADDOCK.y - 1 });
+    fences.push({ x, y: PADDOCK.y + PADDOCK.h });
+  }
+  for (let y = PADDOCK.y; y < PADDOCK.y + PADDOCK.h; y++) { fences.push({ x: PADDOCK.x - 1, y }); fences.push({ x: PADDOCK.x + PADDOCK.w, y }); }
+  for (const f of fences) blocked[f.y][f.x] = true;
+  for (let y = PADDOCK.y; y < PADDOCK.y + PADDOCK.h; y++) for (let x = PADDOCK.x; x < PADDOCK.x + PADDOCK.w; x++) ground[y][x] = 'mud';
+  // Hugo's flower patch and hives.
+  for (let y = 14; y <= 19; y++) for (let x = 2; x <= 9; x++) ground[y][x] = 'flowers';
+  for (const h of HIVES) blocked[h.y][h.x] = true;
+  const trees = [];
+  for (let x = 0; x < RANCH_COLS; x += 2) { trees.push({ x, y: 0 }); trees.push({ x, y: RANCH_ROWS - 1 }); }
+  for (let y = 2; y < RANCH_ROWS - 1; y += 2) {
+    if (Math.abs(y - RANCH_ROAD) > 1) trees.push({ x: 0, y });
+    trees.push({ x: RANCH_COLS - 1, y });
+  }
+  for (const [x, y] of [[11, 4], [12, 16], [28, 13], [10, 20], [23, 2]]) trees.push({ x, y });
+  const kept = trees.filter((t) => !blocked[t.y][t.x] && ground[t.y][t.x] === 'grass');
+  for (const t of kept) blocked[t.y][t.x] = true;
+  return { ground, blocked, trees: kept, fences };
+}
+
+export const BUILDING = Object.fromEntries([...BUILDINGS, ...RANCH_BUILDINGS].map((b) => [b.id, b]));
 
 /** Is this place open at this time on this day? Homes never are. */
 export function isOpen(id, minutes, day) {
@@ -147,6 +198,12 @@ export const SPOTS = {
   riverbank_w: { scene: 'town', x: 12, y: 24 },
   riverbank_e: { scene: 'town', x: 34, y: 24 },
   bonsai: { scene: 'town', x: 29, y: 24 },
+  ranch_paddock: { scene: 'ranch', x: 20, y: 12 },
+  ranch_porch: { scene: 'ranch', x: 6, y: 9 },
+  ranch_barn: { scene: 'ranch', x: 19, y: 9 },
+  ranch_road: { scene: 'ranch', x: 13, y: 11 },
+  ranch_hives: { scene: 'ranch', x: 6, y: 16 },
+  honey_shed: { scene: 'ranch', x: 27, y: 9 },
   farm_stall: { scene: 'farm', x: 24, y: 5 },
   farm_a: { scene: 'farm', x: 14, y: 13 },
   farm_b: { scene: 'farm', x: 22, y: 14 },
@@ -167,6 +224,7 @@ export const FOOD = {
   tea: { name: 'Tea', price: 30, energy: 20, place: 'cafe', daily: true },
   pie: { name: 'Pie', price: 80, energy: 50, place: 'cafe', daily: true },
   bread: { name: 'Bread', price: 40, energy: 25, place: 'bakery', daily: false },
+  honey: { name: 'Honey on toast', price: 25, energy: 15, place: 'honey_shed', daily: true },
 };
 
 export function dayStamp(save) {

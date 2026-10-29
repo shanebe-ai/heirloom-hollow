@@ -8,7 +8,7 @@ import { G, clockLabel } from './state';
 import { refreshHud, info, anyPanelOpen, openPlace, showSummary } from './ui';
 import { Walker } from './walker';
 import {
-  TOWN_COLS, TOWN_ROWS, BUILDINGS, FOUNTAIN, NOTICEBOARD, ENTRY_ROW, townLayout, isOpen, hoursText, isRestDay,
+  TOWN_COLS, TOWN_ROWS, BUILDINGS, WEST_GATE, EAST_GATE, RANCH_ROAD, FOUNTAIN, NOTICEBOARD, ENTRY_ROW, townLayout, isOpen, hoursText, isRestDay,
   type Building, type TownGround,
 } from '../shared/town.js';
 import { COLS as FARM_COLS } from './world';
@@ -21,14 +21,15 @@ const GRASS_DARK = '#6aa94f';
 type Ctx = CanvasRenderingContext2D;
 const px = (c: Ctx, x: number, y: number, w: number, h: number, col: string) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
 
-function drawTownGround(ground: TownGround[][]): HTMLCanvasElement {
+export function drawTownGround(ground: TownGround[][]): HTMLCanvasElement {
   const cv = document.createElement('canvas');
-  cv.width = TOWN_COLS * T; cv.height = TOWN_ROWS * T;
+  const ROWS = ground.length, COLS = ground[0].length;
+  cv.width = COLS * T; cv.height = ROWS * T;
   const c = cv.getContext('2d')!;
-  const r = rng(9);
+  const r = rng(9 + COLS);
   const at = (x: number, y: number) => ground[y]?.[x] ?? 'grass';
-  for (let y = 0; y < TOWN_ROWS; y++)
-    for (let x = 0; x < TOWN_COLS; x++) {
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++) {
       const X = x * T, Y = y * T, g = ground[y][x];
       px(c, X, Y, T, T, GRASS[0]);
       for (let k = 0; k < 3; k++) px(c, X + Math.floor(r() * 26), Y + Math.floor(r() * 28), 4 + Math.floor(r() * 6), 2 + Math.floor(r() * 3), GRASS[1 + Math.floor(r() * 2)]);
@@ -43,6 +44,17 @@ function drawTownGround(ground: TownGround[][]): HTMLCanvasElement {
         for (let k = 0; k < 5; k++) px(c, X + Math.floor(r() * 30), Y + Math.floor(r() * 30), 2, 1, '#c99f6a');
         if (at(x, y - 1) === 'grass') for (let i = 0; i < T; i += 3) px(c, X + i, Y, 2, 1 + Math.floor(r() * 3), GRASS[0]);
         if (at(x, y + 1) === 'grass') for (let i = 0; i < T; i += 3) px(c, X + i, Y + T - 2, 2, 2, '#c99f6a');
+      }
+      if (g === 'mud') {
+        px(c, X, Y, T, T, '#a8805a');
+        for (let k = 0; k < 6; k++) px(c, X + Math.floor(r() * 28), Y + Math.floor(r() * 28), 4, 2, r() < 0.5 ? '#8a6544' : '#d9b56a');
+      }
+      if (g === 'flowers') {
+        for (let k = 0; k < 7; k++) {
+          const fx = X + 3 + Math.floor(r() * 26), fy = Y + 3 + Math.floor(r() * 26);
+          const petal = ['#f7a8c4', '#ffd166', '#c9b6f2', '#fff6e6', '#f26b5b'][Math.floor(r() * 5)];
+          px(c, fx, fy + 2, 1, 3, '#4c8a3d'); px(c, fx - 1, fy, 3, 2, petal);
+        }
       }
       if (g === 'cobble') {
         px(c, X, Y, T, T, '#cdbfa8');
@@ -69,7 +81,7 @@ function drawTownGround(ground: TownGround[][]): HTMLCanvasElement {
 }
 
 /** One building front: a roof, a wall with windows, a door, and a board for its sign. */
-function drawFront(b: Building): HTMLCanvasElement {
+export function drawFront(b: Building): HTMLCanvasElement {
   const W = b.w * T, H = b.h * T;
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
@@ -174,6 +186,7 @@ function drawBonsai(): HTMLCanvasElement {
 
 export class Town extends Walker {
   readonly where = 'town' as const;
+  gates() { return { west: WEST_GATE, east: EAST_GATE }; }
   ground!: TownGround[][];
   interact: { kind: 'building'; id: string } | { kind: 'fountain' | 'notices' | 'bench' | 'bed' | 'bonsai' } | null = null;
   things: { x: number; y: number; w: number; h: number; kind: 'fountain' | 'notices' | 'bench' | 'bed' | 'bonsai' }[] = [];
@@ -284,10 +297,7 @@ export class Town extends Walker {
   onTile(here: { x: number; y: number }) {
     G.save.player = { x: here.x, y: here.y, scene: 'town' };
     if (here.x === 0) { this.goTo('farm', { x: FARM_COLS - 2, y: 11 }); return true; }
-    if (here.x === TOWN_COLS - 1) {
-      info('The ranch road', "The road runs on east to June's ranch and Hugo's hives. Nothing out there for you yet. Another day.");
-      this.walkTo(TOWN_COLS - 3, ENTRY_ROW, false);
-    }
+    if (here.x === TOWN_COLS - 1) { this.goTo('ranch', { x: 1, y: RANCH_ROAD }); return true; }
     return false;
   }
 

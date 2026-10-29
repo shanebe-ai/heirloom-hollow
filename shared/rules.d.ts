@@ -21,7 +21,7 @@ export interface Save {
   inventory: Record<string, number>;
   shipping: Record<string, number>;
   tiles: Record<string, Tile>;
-  player: { x: number; y: number; scene: 'farm' | 'house' | 'town' };
+  player: { x: number; y: number; scene: 'farm' | 'house' | 'town' | 'ranch' };
   bigCan?: boolean;
   meals?: { stamp: string; had: string[] };
   chatMemory?: Record<string, { from: string; text: string }[]>;

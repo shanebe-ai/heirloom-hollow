@@ -10,6 +10,7 @@ import { House } from './house';
 
 import { Walker, ALL_SHEETS, DIRS, type Dir } from './walker';
 import { Town } from './town';
+import { Ranch } from './ranch';
 
 /** Loads every sprite sheet once and builds the shared animations, then
  *  starts whichever scene the farmer was last in. */
@@ -29,12 +30,13 @@ class Boot extends Phaser.Scene {
     this.anims.create({ key: 'fox-sit', frameRate: 2, repeat: -1, frames: this.anims.generateFrameNumbers('bramble', { start: 8, end: 11 }) });
     this.anims.create({ key: 'fox-sleep', frameRate: 1.5, repeat: -1, frames: this.anims.generateFrameNumbers('bramble', { start: 12, end: 15 }) });
     const scene = G.save.player.scene;
-    this.scene.start(scene === 'house' ? 'house' : scene === 'town' ? 'town' : 'farm');
+    this.scene.start(scene === 'house' ? 'house' : scene === 'town' ? 'town' : scene === 'ranch' ? 'ranch' : 'farm');
   }
 }
 
 class Farmyard extends Walker {
   readonly where = 'farm' as const;
+  gates() { return { east: { x: COLS - 1, y: 11 } }; }
   farm!: Farm;
   bramble!: Phaser.GameObjects.Sprite;
   tileGroup!: Phaser.GameObjects.Group;
@@ -295,6 +297,6 @@ void (async () => {
     pixelArt: true,
     roundPixels: true,
     scale: { mode: Phaser.Scale.RESIZE, width: window.innerWidth, height: window.innerHeight },
-    scene: [Boot, Farmyard, House, Town],
+    scene: [Boot, Farmyard, House, Town, Ranch],
   });
 })();
