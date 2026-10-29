@@ -14,6 +14,8 @@ import {
 import { COLS as FARM_COLS } from './world';
 
 const OUT = '#4a2826';
+/** Old fashioned lettering for the shop signs. */
+const SIGN_FONT = '"IM Fell English SC", Georgia, serif';
 const GRASS = ['#8ccb6a', '#84c463', '#93d070'];
 const GRASS_DARK = '#6aa94f';
 type Ctx = CanvasRenderingContext2D;
@@ -196,14 +198,17 @@ export class Town extends Walker {
     this.canvasTex('bonsai', drawBonsai);
     this.add.image(0, 0, 'townGround').setOrigin(0).setDepth(-10);
 
+    const signs: Phaser.GameObjects.Text[] = [];
     for (const b of BUILDINGS) {
       this.canvasTex(`front_${b.id}`, () => drawFront(b));
       const bottom = (b.y + b.h) * T;
       this.add.image(b.x * T, bottom, `front_${b.id}`).setOrigin(0, 1).setDepth(bottom);
-      this.add.text(b.x * T + (b.w * T) / 2, b.y * T + 45, b.name, {
-        fontFamily: '"Pixelify Sans", monospace', fontSize: '11px', color: '#4a2826', resolution: 3,
-      }).setOrigin(0.5).setDepth(bottom + 1);
+      signs.push(this.add.text(b.x * T + (b.w * T) / 2, b.y * T + 45, b.name, {
+        fontFamily: SIGN_FONT, fontSize: '13px', color: '#4a2826', resolution: 3,
+      }).setOrigin(0.5).setDepth(bottom + 1));
     }
+    // The sign font comes from the web; redraw the signs once it has arrived.
+    void document.fonts?.load(`13px ${SIGN_FONT}`).then(() => { for (const t of signs) if (t.active) t.setFontFamily(SIGN_FONT); }).catch(() => {});
     L.trees.forEach((t, i) => this.add.image(t.x * T + 16, (t.y + 1) * T, `tree${i % 3}`).setOrigin(0.5, 1).setDepth((t.y + 1) * T));
     this.add.image(FOUNTAIN.x * T, (FOUNTAIN.y + FOUNTAIN.h) * T, 'fountain').setOrigin(0, 1).setDepth((FOUNTAIN.y + FOUNTAIN.h) * T);
     this.add.image(NOTICEBOARD.x * T, (NOTICEBOARD.y + 1) * T, 'noticeboard').setOrigin(0, 1).setDepth((NOTICEBOARD.y + 1) * T);
