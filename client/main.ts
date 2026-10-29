@@ -3,7 +3,7 @@
 import Phaser from 'phaser';
 import { T, COLS, ROWS, layout, drawGround, drawHouse, drawTree, drawFence, drawSign, drawSoil, drawFertiliser, drawCrop, drawDeadPlant, drawShippingBox, Farm } from './world';
 import { G, loadGame, startAutosave, tileAt, tileKey, markStep, guideActive } from './state';
-import { initUI, refreshHud, openShip, showSummary, toast, anyPanelOpen } from './ui';
+import { initUI, refreshHud, openShip, showSummary, toast, info, anyPanelOpen } from './ui';
 import { ENERGY_COSTS, CROPS, ITEMS, cropStage, isRipe, harvestTile } from '../shared/rules.js';
 import { canCapacity, ENTRY_ROW } from '../shared/town.js';
 import { House } from './house';
@@ -133,7 +133,7 @@ class Farmyard extends Walker {
     if (this.interactTarget) {
       const target = this.interactTarget;
       this.interactTarget = null;
-      if (target === 'sign') toast('To Hollow Square, east. The General Store sells seeds there.');
+      if (target === 'sign') info('The signpost', 'To Hollow Square, east. Follow the path off the edge of the farm. Pip and Poppy sell seeds at the General Store there.');
       else openShip();
       return true;
     }

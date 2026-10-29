@@ -5,7 +5,7 @@
 import Phaser from 'phaser';
 import { T, rng, drawTree } from './world';
 import { G, clockLabel } from './state';
-import { refreshHud, toast, anyPanelOpen, openPlace, showSummary } from './ui';
+import { refreshHud, info, anyPanelOpen, openPlace, showSummary } from './ui';
 import { Walker } from './walker';
 import {
   TOWN_COLS, TOWN_ROWS, BUILDINGS, FOUNTAIN, NOTICEBOARD, ENTRY_ROW, townLayout, isOpen, hoursText, isRestDay,
@@ -260,11 +260,11 @@ export class Town extends Walker {
     if (!it) return false;
     this.interact = null;
     if (it.kind === 'building') { this.playerDir = 'up'; this.stand(this.player, 'up'); openPlace(it.id); return true; }
-    if (it.kind === 'fountain') toast('Coins glint at the bottom of the fountain. Someone has wished a lot of wishes.');
-    else if (it.kind === 'notices') toast(this.notices());
-    else if (it.kind === 'bench') toast('A sun warmed bench. Somebody has carved a heart into the arm.');
-    else if (it.kind === 'bed') toast("Rosie's flower beds, every one of them in bloom.");
-    else toast("Hana's bonsai garden. Each little tree is older than you are.");
+    if (it.kind === 'fountain') info('The fountain', 'Coins glint at the bottom of the fountain. Someone has wished a lot of wishes.');
+    else if (it.kind === 'notices') info('The noticeboard', this.notices());
+    else if (it.kind === 'bench') info('A bench', 'A sun warmed bench. Somebody has carved a heart into the arm.');
+    else if (it.kind === 'bed') info('Flower beds', "Rosie's flower beds, every one of them in bloom.");
+    else info('The bonsai garden', "Hana's bonsai garden. Each little tree is older than you are.");
     return true;
   }
 
@@ -273,14 +273,14 @@ export class Town extends Walker {
     const s = G.save;
     const store = isOpen('store', s.minutes, s.day) ? 'The General Store is open now.' : `The General Store: ${hoursText('store')}`;
     const rest = isRestDay(s.day) ? 'Rest day today: the store, the clinic and the Mayor\'s House are shut.' : 'Next rest day is day ' + (Math.floor(s.day / 7) * 7 + 7) + '.';
-    return `Noticeboard, ${clockLabel().split('  ')[0]}. ${store} ${rest} Flower Festival on Spring 14. Lost: one grey cat, answers to Biscuit.`;
+    return `${clockLabel().split('  ')[0]}. ${store} ${rest} Flower Festival on Spring 14. Lost: one grey cat, answers to Biscuit.`;
   }
 
   onTile(here: { x: number; y: number }) {
     G.save.player = { x: here.x, y: here.y, scene: 'town' };
     if (here.x === 0) { this.goTo('farm', { x: FARM_COLS - 2, y: 11 }); return true; }
     if (here.x === TOWN_COLS - 1) {
-      toast("The ranch road runs on east to June's ranch and Hugo's hives. Another day.");
+      info('The ranch road', "The road runs on east to June's ranch and Hugo's hives. Nothing out there for you yet. Another day.");
       this.walkTo(TOWN_COLS - 3, ENTRY_ROW, false);
     }
     return false;

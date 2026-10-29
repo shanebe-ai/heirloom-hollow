@@ -8,7 +8,7 @@ import { NAMES } from './walker';
 import { drawToolIcon } from './world';
 
 const $ = (id: string) => document.getElementById(id)!;
-const PANELS = ['bagPanel', 'placePanel', 'shipPanel', 'seedPop', 'sleepPanel', 'summaryPanel', 'settingsPanel', 'letterPanel', 'setupPanel', 'unlockPanel', 'stallPanel'];
+const PANELS = ['bagPanel', 'placePanel', 'shipPanel', 'seedPop', 'sleepPanel', 'summaryPanel', 'settingsPanel', 'letterPanel', 'setupPanel', 'unlockPanel', 'stallPanel', 'infoPanel'];
 
 /** The first steps guide: the card words and the hint line for each step. */
 const GUIDE_WORDS: Record<string, { label: string; hint: string }> = {
@@ -137,6 +137,13 @@ export function anyPanelOpen(): boolean {
 function openPanel(id: string) {
   closePanels();
   $(id).classList.add('open');
+}
+
+/** A pop up card for things worth reading: signs, the noticeboard, where a road goes. */
+export function info(title: string, text: string) {
+  $('infoTitle').textContent = title;
+  $('infoText').textContent = text;
+  openPanel('infoPanel');
 }
 
 let toastTimer = 0;
@@ -396,6 +403,7 @@ export function initUI() {
     void saveGame();
   });
   $('letterBtn').addEventListener('click', openLetter);
+  $('infoOk').addEventListener('click', closePanels);
   for (const l of FARMER_LOOKS) $(`pick-${l.key}`).addEventListener('click', () => pickLook(l.key));
   for (const a of ['backpack', 'purse', 'none']) $(`pick-acc-${a}`).addEventListener('click', () => pickAcc(a));
   $('stallChat').addEventListener('click', () => {
