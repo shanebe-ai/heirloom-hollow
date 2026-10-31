@@ -102,6 +102,24 @@ export function drawFront(b: Building): HTMLCanvasElement {
   px(c, dx, H - 44, 24, 44, '#b5784e');
   px(c, dx, H - 44, 24, 3, '#cf9466');
   px(c, dx + 18, H - 22, 3, 3, '#ffd166');
+  if (b.id === 'barn') {
+    // A barn: big double doors with cross braces, and a hayloft hatch under the roof.
+    const bw = 76, bx = Math.floor((W - bw) / 2), by = H - 64;
+    px(c, bx - 3, by - 3, bw + 6, 67, OUT);
+    for (const half of [0, 1]) {
+      const x0 = bx + half * (bw / 2);
+      px(c, x0, by, bw / 2 - 1, 64, '#b5784e');
+      for (let i = 0; i < bw / 2 - 1; i += 8) px(c, x0 + i, by, 1, 64, '#9a6b48');
+      px(c, x0, by, bw / 2 - 1, 3, '#f6e6c6'); px(c, x0, by + 61, bw / 2 - 1, 3, '#f6e6c6');
+      for (let k = 0; k < 34; k++) { px(c, x0 + k, by + Math.floor(k * 1.8), 3, 3, '#f6e6c6'); px(c, x0 + 34 - k, by + Math.floor(k * 1.8), 3, 3, '#f6e6c6'); }
+    }
+    px(c, bx + bw / 2 - 1, by, 2, 64, OUT);
+    px(c, W / 2 - 14, roofH + 9, 28, 20, OUT); px(c, W / 2 - 12, roofH + 11, 24, 16, '#5c3a26');
+    px(c, W / 2 - 10, roofH + 19, 20, 8, '#e8d18a');
+    px(c, 10, roofH - 22, W - 20, 18, OUT);
+    px(c, 12, roofH - 20, W - 24, 14, '#f6e6c6');
+    return cv;
+  }
   // Windows either side of the door, with flower boxes.
   for (let wx = 16; wx < W - 28; wx += 40) {
     if (Math.abs(wx + 13 - (dx + 12)) < 30) continue;
